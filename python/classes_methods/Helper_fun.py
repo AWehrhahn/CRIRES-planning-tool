@@ -504,6 +504,7 @@ def SN_estimate_num_of_exp(eclipse, planet, snr = 100):
             eclipse['Maximum S/N'] = max_SN
             eclipse['Average Exposure Time [s]'] = Exposure_time
             # eclipse['Maximum Exposure Time'] = Exposure_times[-1]
+    return eclipse
 
 ##########################################################################################################
 
