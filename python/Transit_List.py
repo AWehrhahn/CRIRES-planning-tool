@@ -211,9 +211,8 @@ def etc_calculator_step(date, max_delta_days, Eclipses_List, minimum_SN=100):
     #         Eclipses_List.remove(planet)
     date, max_delta_days, d_end = parse_date(date, max_delta_days)
 
-    date = (
-        date.isoformat()
-    )  # start date from which the nights in paranal are calculated
+    # start date from which the nights in paranal are calculated
+    date = date.isoformat()
 
     filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
 

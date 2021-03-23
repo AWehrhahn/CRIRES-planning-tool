@@ -11,30 +11,37 @@ except if necessary due to updates on the etc-cli side. .
 @author: jonaszbinden
 GitHub: jonaszubindu
 """
+import argparse
+import json
+import logging
 import os
+
 # import pandas as pd
 import time
-import json
-from json import JSONEncoder, JSONDecodeError
-import argparse
-import requests
-import logging
 from functools import wraps
-from classes_methods import misc
+from json import JSONDecodeError, JSONEncoder
+from os.path import dirname, join
+
 import numpy as np
-from classes_methods import etc_cli
+import requests
+
+from classes_methods import etc_cli, misc
 
 ##########################################################################################################
+
 
 def Etc_logger(orig_fun):
     """ Function to log execution of other functions """
 
     @wraps(orig_fun)
     def wrapper(*args, **kwargs):
-        logging.info('ran {} with args:{}, and kwargs:{}'.format(orig_fun.__name__, args, kwargs))
+        logging.info(
+            "ran {} with args:{}, and kwargs:{}".format(orig_fun.__name__, args, kwargs)
+        )
         return orig_fun(*args, **kwargs)
 
     return wrapper
+
 
 ##########################################################################################################
 
@@ -47,25 +54,36 @@ except ImportError:
 ##########################################################################################################
 
 """ Warnings """
-JSONDecodeWarning = Warning('Something went wrong processing the etc-form file... I will try to find the error for you')
-NDITWarning = Warning('NDIT not available from output file')
+JSONDecodeWarning = Warning(
+    "Something went wrong processing the etc-form file... I will try to find the error for you"
+)
+NDITWarning = Warning("NDIT not available from output file")
 
-def DecodeWarning(key,value):
-    DecodeWarning = FutureWarning(f"the error is related to the present {key} input value: {value.__str__()}")
+
+def DecodeWarning(key, value):
+    DecodeWarning = FutureWarning(
+        f"the error is related to the present {key} input value: {value.__str__()}"
+    )
     return DecodeWarning
 
-ErrorNotFoundWarning = DeprecationWarning('Sorry, I cannot find the error, check the file etc-format.json and try to run it manually on the ETC calculator webpage. \n Maybe she can help you find the error...')
 
-ditSTD = 10 # default value for DIT
-nditSTD = 1 # default value for NDIT
+ErrorNotFoundWarning = DeprecationWarning(
+    "Sorry, I cannot find the error, check the file etc-format.json and try to run it manually on the ETC calculator webpage. \n Maybe she can help you find the error..."
+)
+
+ditSTD = 10  # default value for DIT
+nditSTD = 1  # default value for NDIT
 
 ##########################################################################################################
+
 
 class FormEncoder(JSONEncoder):
     def default(self, o):
         return o.__dict__
 
+
 ##########################################################################################################
+
 
 class etc_form:
     """
@@ -79,6 +97,7 @@ class etc_form:
              change from inputtype "Spectrum" to "Emission Line", this must be regarded
              when adding methods to alter 'etc-form.json'. Might conflict with other methods!
     """
+
     @Etc_logger
     def __init__(self, inputtype):
         """
@@ -92,25 +111,29 @@ class etc_form:
                 be blackbody with an effective Temperature Teff, then use ''snr-Teff'' and ''ndit-Teff'' respectively.
 
         """
-        path = os.getcwd() + '/json_files/'
-        
+        path = join(dirname(__file__, "../json_files"))
+
         try:
             if inputtype == "snr-Teff":
-                with open(path + 'etc-form-default-snr-Teff.json') as args:
+                with open(join(path, "etc-form-default-snr-Teff.json")) as args:
                     etc_obj = json.load(args, object_hook=lambda d: Namespace(**d))
             elif inputtype == "ndit-Teff":
-                with open(path + 'etc-form-default-ndit-Teff.json') as args:
+                with open(join(path, "etc-form-default-ndit-Teff.json")) as args:
                     etc_obj = json.load(args, object_hook=lambda d: Namespace(**d))
             elif inputtype == "snr-Templ":
-                with open(path + 'etc-form-default-ndit-Templ.json') as args:
+                with open(join(path, "etc-form-default-ndit-Templ.json")) as args:
                     etc_obj = json.load(args, object_hook=lambda d: Namespace(**d))
             elif inputtype == "ndit-Templ":
-                with open(path + 'etc-form-default-ndit-Templ.json') as args:
+                with open(join(path, "etc-form-default-ndit-Templ.json")) as args:
                     etc_obj = json.load(args, object_hook=lambda d: Namespace(**d))
             else:
                 raise KeyError("wrong inputtype: {}".format(inputtype))
         except FileNotFoundError:
-            raise FileNotFoundError("File '{}/etc-form-default-{}.json' is not existing or not in current directory".format(path,inputtype))
+            raise FileNotFoundError(
+                "File '{}/etc-form-default-{}.json' is not existing or not in current directory".format(
+                    path, inputtype
+                )
+            )
         self.input = etc_obj
 
     ##########################################################################################################
@@ -166,57 +189,62 @@ class etc_form:
         if "airmass" in kwargs:
             self.input.sky.airmass = kwargs.get("airmass")
             # self.input.sky.airmass = 12 # Chabis Test
-        
+
         if "moon_target_sep" in kwargs:
             self.input.sky.moon_target_sep = kwargs.get("moon_target_sep")[0]
             self.input.sky.moon_alt = kwargs.get("moon_target_sep")[1]
-        
+
         if "moon_phase" in kwargs:
             self.input.sky.moon_sun_sep = kwargs.get("moon_phase")
 
         if "snr" in kwargs:
             self.input.timesnr.snr.snr = kwargs.get("snr")
         else:
-            self.input.timesnr.snr.snr = 100 # default signal to noise ratio: 100
+            self.input.timesnr.snr.snr = 100  # default signal to noise ratio: 100
         if "dit" in kwargs:
             self.input.timesnr.dit = kwargs.get("dit")
-            
-        
-        if self.input.target.sed.spectrum.spectrumtype == 'template':
+
+        if self.input.target.sed.spectrum.spectrumtype == "template":
             if "temperature" in kwargs:
                 temperature = kwargs.get("temperature")
                 if temperature > 8000:
-                    print(f"WARNING : Temperature exceeds MARCS spT catalog levels! Teff = {temperature}, taking T = 8000 K")
+                    print(
+                        f"WARNING : Temperature exceeds MARCS spT catalog levels! Teff = {temperature}, taking T = 8000 K"
+                    )
                     temperature = 8000
                 elif temperature < 4000:
-                    print(f"WARNING : Temperature does not reach lower MARCS spT catalog levels! Teff = {temperature}, taking T = 4000 K")
+                    print(
+                        f"WARNING : Temperature does not reach lower MARCS spT catalog levels! Teff = {temperature}, taking T = 4000 K"
+                    )
                     temperature = 4000
                 else:
-                    temperature = int(np.round(temperature/500)*500)
+                    temperature = int(np.round(temperature / 500) * 500)
                 self.input.target.sed.spectrum.params.spectype = f"p{temperature}:g+4.0:m0.0:t02:st:z+0.00:a+0.00:c+0.00:n+0.00:o+0.00"
-        
-        elif self.input.target.sed.spectrum.spectrumtype == 'blackbody':
+
+        elif self.input.target.sed.spectrum.spectrumtype == "blackbody":
             if "temperature" in kwargs:
-                self.input.target.sed.spectrum.params.temperature = kwargs.get("temperature")
-        
+                self.input.target.sed.spectrum.params.temperature = kwargs.get(
+                    "temperature"
+                )
+
         if "gsmag" in kwargs:
             self.input.seeingiqao.params.gsmag = kwargs.get("gsmag")
-        
+
         if "sptype" in kwargs:
             self.input.seeingiqao.params.sptype = kwargs.get("sptype")
 
         if "brightness" in kwargs:
             self.input.target.brightness.params.mag = kwargs.get("brightness")
-        
+
         if "inputtype" in kwargs:
             self.input.timesnr.inputtype = kwargs.get("inputtype")
-        
+
         if self.input.timesnr.inputtype == "snr":
             if kwargs.get("dit") == None:
                 self.input.timesnr.dit = ditSTD
             else:
                 self.input.timesnr.dit = kwargs.get("dit")
-        
+
         elif self.input.timesnr.inputtype == "ndit":
             if kwargs.get("dit") == None:
                 self.input.timesnr.ndit = ditSTD
@@ -235,10 +263,10 @@ class etc_form:
             Writes self.etc to a new JSON file named 'etc-form.json' such
             that it can be interpreted by the ETC online-calculator.
         """
-        path = os.getcwd() + '/json_files/'
-        
+        path = join(dirname(__file__), "../json_files")
+
         Etc_write = self.input
-        with open(path + 'etc-form.json','w') as Dump:
+        with open(join(path, "etc-form.json"), "w") as Dump:
             json.dump(Etc_write, Dump, indent=2, cls=FormEncoder)
 
     ##########################################################################################################
@@ -275,37 +303,60 @@ class etc_form:
                 If success = 1 the loop breaks and the output gets processed.
 
             """
-            path = os.getcwd() + '/json_files/'
-            
+            path = join(dirname(__file__), "../json_files")
+
             try:
-                CallETC(args = ['crires', path + 'etc-form.json', '-o', path + 'etc-data.json'])
+                CallETC(
+                    args=[
+                        "crires",
+                        join(path, "etc-form.json"),
+                        "-o",
+                        join(path, "etc-data.json"),
+                    ]
+                )
                 # print('WHY IS THIS NOT PRINTING!')
-                print('ETC calculator successfully called for {},{}'.format(name, tim))
+                print("ETC calculator successfully called for {},{}".format(name, tim))
                 success = 1
             except Exception as e:
                 if type(e) == requests.exceptions.ConnectionError:
                     try:
-                        print('could not connect to ETC server, trying again...')
-                        time.sleep(5) # waits for better server connection if connectionseams unstable
-                        CallETC(args = ['crires', path + 'etc-form.json', '-o', path + 'etc-data.json'])
+                        print("could not connect to ETC server, trying again...")
+                        time.sleep(
+                            5
+                        )  # waits for better server connection if connectionseams unstable
+                        CallETC(
+                            args=[
+                                "crires",
+                                join(path, "etc-form.json"),
+                                "-o",
+                                join(path, "etc-data.json"),
+                            ]
+                        )
                     except Exception as e:
                         if type(e) == requests.exceptions.ConnectionError:
-                            print(ConnectionError('Could not establish VPN connection to ETC server'))
-                            misc.wait_for_enter(msg='Connection Error: Check Internet connection and press enter when problem resolved:')
+                            print(
+                                ConnectionError(
+                                    "Could not establish VPN connection to ETC server"
+                                )
+                            )
+                            misc.wait_for_enter(
+                                msg="Connection Error: Check Internet connection and press enter when problem resolved:"
+                            )
 
                 elif type(e) == json.decoder.JSONDecodeError:
                     raise e
                 else:
                     raise e
 
-
         time.sleep(1)
-        with open(path + 'etc-data.json') as args:
-            output = json.load(args, object_hook=lambda d: Namespace(**d)) # writes the ETC data to a output namespace object
+        with open(join(path, "etc-data.json")) as args:
+            output = json.load(
+                args, object_hook=lambda d: Namespace(**d)
+            )  # writes the ETC data to a output namespace object
         try:
             NDIT = output.data.time.ndit
         except Exception:
-            raise NDITWarning # Warning
+            raise NDITWarning  # Warning
             NDIT = 0
 
         if self.input.timesnr.inputtype == "ndit":
@@ -315,7 +366,18 @@ class etc_form:
     ##########################################################################################################
 
     @Etc_logger
-    def etc_debugger(self, inputtype, name, tim, temperature, brightness, airmass, moon_phase, moon_target_sep, gsmag):
+    def etc_debugger(
+        self,
+        inputtype,
+        name,
+        tim,
+        temperature,
+        brightness,
+        airmass,
+        moon_phase,
+        moon_target_sep,
+        gsmag,
+    ):
         """
             This tries to find the error in the etc-format file. As soon as the ETC calculator gets updated with better input error handling
             this function must be updated or replaced by additional error handling in the functions running the ETC calculator.
@@ -354,108 +416,125 @@ class etc_form:
             back to the user
 
         """
-        
-        path = os.getcwd() + '/json_files/'
-        
-        print('Something went wrong processing the etc-form file... I will try to fix it for you')
+
+        path = join(dirname(__file__), "../json_files")
+
+        print(
+            "Something went wrong processing the etc-form file... I will try to fix it for you"
+        )
         print(name, tim, temperature, brightness, airmass, moon_phase, moon_target_sep)
         os.system(f"cp {path}/etc-form.json {path}/etc-form-copy.json")
-        
+
         cls = type(self)
         ETC = cls.__new__(cls)
         ETC.__init__(inputtype)
-        ETC.update_etc_form(temperature = temperature)
+        ETC.update_etc_form(temperature=temperature)
         ETC.write_etc_format_file()
         try:
-            NDIT, output = ETC.run_etc_calculator(name,tim)
+            NDIT, output = ETC.run_etc_calculator(name, tim)
         except JSONDecodeError:
-            raise DecodeWarning('temperature',temperature) # Warning
+            raise DecodeWarning("temperature", temperature)  # Warning
         cls = type(self)
         ETC = cls.__new__(cls)
         ETC.__init__(inputtype)
-        ETC.update_etc_form(brightness = brightness)
+        ETC.update_etc_form(brightness=brightness)
         ETC.write_etc_format_file()
         try:
-            NDIT, output = ETC.run_etc_calculator(name,tim)
+            NDIT, output = ETC.run_etc_calculator(name, tim)
         except JSONDecodeError:
-            raise DecodeWarning('brightness', brightness) # Warning
+            raise DecodeWarning("brightness", brightness)  # Warning
         cls = type(self)
         ETC = cls.__new__(cls)
         ETC.__init__(inputtype)
-        ETC.update_etc_form(airmass = airmass)
+        ETC.update_etc_form(airmass=airmass)
         ETC.write_etc_format_file()
         try:
-            NDIT, output = ETC.run_etc_calculator(name,tim)
+            NDIT, output = ETC.run_etc_calculator(name, tim)
         except JSONDecodeError:
-            raise DecodeWarning('airmass', airmass)
+            raise DecodeWarning("airmass", airmass)
         cls = type(self)
         ETC = cls.__new__(cls)
         ETC.__init__(inputtype)
-        ETC.update_etc_form(moon_phase = moon_phase)
+        ETC.update_etc_form(moon_phase=moon_phase)
         ETC.write_etc_format_file()
         try:
-            NDIT, output = ETC.run_etc_calculator(name,tim)
+            NDIT, output = ETC.run_etc_calculator(name, tim)
         except JSONDecodeError:
-            raise DecodeWarning('moon_phase', moon_phase)
+            raise DecodeWarning("moon_phase", moon_phase)
             cls = type(self)
         ETC = cls.__new__(cls)
         ETC.__init__(inputtype)
-        ETC.update_etc_form(moon_target_sep = moon_target_sep)
+        ETC.update_etc_form(moon_target_sep=moon_target_sep)
         ETC.write_etc_format_file()
         try:
-            NDIT, output = ETC.run_etc_calculator(name,tim)
+            NDIT, output = ETC.run_etc_calculator(name, tim)
         except JSONDecodeError:
-            raise DecodeWarning('moon_target_sep', moon_target_sep)
+            raise DecodeWarning("moon_target_sep", moon_target_sep)
             cls = type(self)
         ETC = cls.__new__(cls)
         ETC.__init__(inputtype)
-        ETC.update_etc_form(gsmag = gsmag)
+        ETC.update_etc_form(gsmag=gsmag)
         ETC.write_etc_format_file()
         try:
-            NDIT, output = ETC.run_etc_calculator(name,tim)
+            NDIT, output = ETC.run_etc_calculator(name, tim)
         except JSONDecodeError:
-            raise DecodeWarning('gsmag', gsmag)
-        
-        #others...
-        
-        print('I will continue with the next planet for now...')
-        raise ErrorNotFoundWarning # Warning
+            raise DecodeWarning("gsmag", gsmag)
+
+        # others...
+
+        print("I will continue with the next planet for now...")
+        raise ErrorNotFoundWarning  # Warning
 
 
 ##########################################################################################################
 
+
 @Etc_logger
 def CallETC(args):
     """ This part is extracted from etc-cli.py and is included here to ensure better error handling. """
-    #-------------------------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------------------------
     parser = argparse.ArgumentParser(
-    description='Call an ETC with input parameters and optionally an uploaded spectrum.\n'
-    + 'Print the resulting JSON on stdout or optionally a file.\n'
-    + 'Examples: \n'
-    + './etc_cli.py crires etc-form.json -o output1.json\n'
-    + './etc_cli.py crires etc-form-uploading.json -u upload.dat -o output2.json',
-    formatter_class=argparse.RawTextHelpFormatter
+        description="Call an ETC with input parameters and optionally an uploaded spectrum.\n"
+        + "Print the resulting JSON on stdout or optionally a file.\n"
+        + "Examples: \n"
+        + "./etc_cli.py crires etc-form.json -o output1.json\n"
+        + "./etc_cli.py crires etc-form-uploading.json -u upload.dat -o output2.json",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
-    parser.add_argument('etcname',
-                        help='Name of instrument ETC to call, e.g. 4most')
+    parser.add_argument("etcname", help="Name of instrument ETC to call, e.g. 4most")
 
-    parser.add_argument('postdatafile',
-                        help='Name of JSON file with ETC input parameters,\nlike the ETC input form')
+    parser.add_argument(
+        "postdatafile",
+        help="Name of JSON file with ETC input parameters,\nlike the ETC input form",
+    )
 
-    parser.add_argument('-u,', '--upload', dest="uploadfile",
-                        help='Name of file with spectrum to upload.\nSee https://etc.eso.org/observing/etc/doc/upload.html')
+    parser.add_argument(
+        "-u,",
+        "--upload",
+        dest="uploadfile",
+        help="Name of file with spectrum to upload.\nSee https://etc.eso.org/observing/etc/doc/upload.html",
+    )
 
-    parser.add_argument('-c', '--collapse', action='store_true',
-                        help='collapse output JSON data arrays to a short indicative strings')
+    parser.add_argument(
+        "-c",
+        "--collapse",
+        action="store_true",
+        help="collapse output JSON data arrays to a short indicative strings",
+    )
 
-    parser.add_argument('-i', '--indent', type=int, nargs='?', const=4,
-                        help='Format the output JSON with indentation (default 4)')
+    parser.add_argument(
+        "-i",
+        "--indent",
+        type=int,
+        nargs="?",
+        const=4,
+        help="Format the output JSON with indentation (default 4)",
+    )
 
-    parser.add_argument('-o', '--outputfile', dest="outputfile",
-                        help='Send the output to file')
-
-
+    parser.add_argument(
+        "-o", "--outputfile", dest="outputfile", help="Send the output to file"
+    )
 
     args = parser.parse_args(args=args)
 
@@ -463,7 +542,7 @@ def CallETC(args):
     # baseurl = 'https://etctest.hq.eso.org/observing/etc/etcapi/'
 
     """ Temporary this is in use, does not require VPN """
-    baseurl = 'https://etctestpub.eso.org/observing/etc/etcapi/'
+    baseurl = "https://etctestpub.eso.org/observing/etc/etcapi/"
     # baseurl = 'https://etc.eso.org/observing/etc/etcapi/'
 
     etcName = etc_cli.getEtcUrl(args.etcname)
@@ -475,4 +554,6 @@ def CallETC(args):
     etc_cli.output(jsondata, args)
     # ------------------------------------------------------------------------------------------------
 
+
 ##########################################################################################################
+

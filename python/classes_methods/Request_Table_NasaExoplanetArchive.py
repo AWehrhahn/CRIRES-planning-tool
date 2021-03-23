@@ -27,6 +27,7 @@ import pandas as pd
 import re
 import os
 import wget
+from os.path import dirname, join
 
 def from_sexagesimal_to_deg(args):
     args = list(filter(None, re.split(r"d|m|s",args)))
@@ -34,11 +35,12 @@ def from_sexagesimal_to_deg(args):
     deg = args[0] + args[1]/60 + args[2]/3600
     return deg
 
-path = os.getcwd()
-path = path[:-15]
+path = join(dirname(__file__), "../")
+
+# path = path[:-15]
 # print(path)
 
-with open(path + 'Nasa_Archive_Selection.txt', 'r') as file:
+with open(join(path, 'Nasa_Archive_Selection.txt'), 'r') as file:
     # Loading file with contstraints for planets
     f_contents = file.readlines()
 
@@ -92,12 +94,12 @@ outformat = "&format=csv"
 url = ''.join((urlRoot, select, table, outformat))
 
 # f_URL_req = url
-path = path + 'csv_files/'
+path = join(path, '..csv_files/')
 filename = 'PlanetAll.csv'
-if os.path.exists(path+filename):
-    os.remove(path+filename) # if exist, remove it directly
+if os.path.exists(join(path, filename)):
+    os.remove(join(path, filename)) # if exist, remove it directly
 
-wget.download(url, out=path+filename)
+wget.download(url, out=join(path, filename))
 
 
 #####################################################################################################

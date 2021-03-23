@@ -60,9 +60,9 @@ def help_fun_logger(orig_fun):
 @help_fun_logger
 def pickled_items(filename):
     """ Unpickle a file of pickled data. """
-    path = os.getcwd() + "/picklefiles/"
+    path = join(dirname(__file__), "../picklefiles")
 
-    with open(path + filename, "rb") as f:
+    with open(join(path, filename), "rb") as f:
         while True:
             try:
                 yield pickle.load(f)
@@ -730,7 +730,7 @@ def data_sorting_and_storing(Eclipses_List, filename=None, write_to_csv=1):
     ranking.sort()
     df_gen1.drop(columns=["Primary eclipse observable?"], inplace=True)
     if write_to_csv == 1:
-        path = os.getcwd() + "/csv_files/"
+        path = join(dirname(__file__), "../csv_files")
         if filename == None:
             d = datetime.date.today()
             Max_Delta_days = "unknown"
@@ -832,7 +832,8 @@ def plotting_transit_data(
             plt.tight_layout()
             plt.show()
 
-            path = os.getcwd() + "/Plots"
+            path = join(dirname(__file__), "../Plots")
+
             fig.savefig(
                 f"{path}/{d_orig}_{Max_Delta_days}d_{d}-{d_end}-results.eps",
                 bbox_inches="tight",
@@ -884,7 +885,8 @@ def plotting_transit_data(
         plt.tight_layout()
         plt.show()
 
-        path = os.getcwd() + "/Plots"
+        path = join(dirname(__file__), "../Plots")
+
         fig.savefig(
             f"{path}/{d_orig}_{Max_Delta_days}d_{d}-{d_end}-results.eps",
             bbox_inches="tight",
@@ -932,7 +934,8 @@ def plotting_transit_data(
         plt.tight_layout()
         plt.show()
 
-        path = os.getcwd() + "/Plots"
+        path = join(dirname(__file__), "../Plots")
+
         fig.savefig(
             f"{path}/{d_orig}_{Max_Delta_days}d_{d}-{d_end}-results.eps",
             bbox_inches="tight",
@@ -1175,7 +1178,8 @@ def plot_night(date, location, obs_obj, mix_types=1):
     ax1.set_ylabel("Altitude [deg]")
     plt.show()
 
-    path = os.getcwd() + "/Plots"
+    path = join(dirname(__file__), "../Plots")
+
     fig.savefig(f"{path}/{d}-single_night.eps")
 
 
@@ -1206,11 +1210,12 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
         Stores xlsx file to csv_file folder.
     
     """
-    path = os.getcwd() + "/csv_files/"
+    path = join(dirname(__file__), "../csv_files")
+
 
     # Create a Pandas Excel writer using XlsxWriter as the engine.
     writer = pd.ExcelWriter(
-        path + filename.split(".")[0] + ".xlsx", engine="xlsxwriter"
+        join(path, filename.split(".")[0] + ".xlsx"), engine="xlsxwriter"
     )
 
     df_frame.reset_index(inplace=True)
