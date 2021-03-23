@@ -96,19 +96,17 @@ IERS_Auto()
 plt.style.use(astropy_mpl_style)
 quantity_support()
 
-# from astroquery.exoplanet_orbit_database import ExoplanetOrbitDatabase
-# import astroquery.open_exoplanet_catalogue as oec
-# from threading import Thread
-
+# TODO: make this copy prints (see maybe PySME for an implementation)
 logging.basicConfig(
     filename="Transit_List.log",
     filemode="w",
     level=logging.DEBUG,
     format="%(asctime)s-%(levelname)s-%(message)s",
 )
+logger = logging.getLogger(__name__)
 
 
-def connect(host="http://exoplanetarchive.ipac.caltech.edu/"):  # Nasa Exoplanet Archive
+def check_connection(host="http://exoplanetarchive.ipac.caltech.edu/"):  # Nasa Exoplanet Archive
     """Check Internet Connection to Nasa Exoplanet Archive"""
     req = requests.get(host)  # Python 3.x
     if req.ok:
@@ -120,7 +118,6 @@ def connect(host="http://exoplanetarchive.ipac.caltech.edu/"):  # Nasa Exoplanet
     return req
 
 
-response = connect()
 
 
 def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_new"):
@@ -349,6 +346,8 @@ def single_transit_calculation(date, max_delta_days, name, constraints):
     return Planet
 
 
+check_connection()
+
 """ Ask for menu input """
 k = misc.user_menu(
     menu=(
@@ -363,9 +362,6 @@ k = misc.user_menu(
 
 """ Location and UTC offset Paranal """
 paranal = Observer.at_site("paranal", timezone="Chile/Continental")
-
-midnight = datetime.time(0, 0, 0)
-
 
 """ Altitude constraints definition """
 Altcons = astroplan.AltitudeConstraint(min=+30 * u.deg, max=None)
@@ -525,39 +521,36 @@ if k == 4:
 if k == 1 and ETC_calculator == "n":
     sys.exit()
 
-if k == 1 or k == 2 or k == 3 or k == 4:
-
+if k in [1, 2, 3, 4]:
     """ Storing data and plotting data """
-    if k == 3:
-        Eclipses_List = Planet
+    if k in [1, 2, 4]:
+        data = Eclipses_List
+    elif k == 3:
+        data = Planet
+    else:
+        raise Exception("What happened?")
 
     ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
-        Eclipses_List, filename, write_to_csv=1
+        data, filename, write_to_csv=1
     )
     ranked_events, Obs_events = fun.postprocessing_events(
-        d, Max_Delta_days, Nights, Eclipses_List
+        d, Max_Delta_days, Nights, data
     )
     fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
-    k2 = misc.user_menu(
-        menu=(
-            "Plot candidates over full period",
-            "Plot single night of (mutual) target(s)",
-            "Get target finder image ",
-        )
+
+k2 = misc.user_menu(
+    menu=(
+        "Plot candidates over full period",
+        "Plot single night of (mutual) target(s)",
+        "Get target finder image ",
     )
+)
+
 
 if k == 5:
     """ Plotting data of some result file """
 
-    k2 = misc.user_menu(
-        menu=(
-            "Plot candidates over full period",
-            "Plot single night of (mutual) target(s)",
-            "Get target finder image ",
-        )
-    )
-
-    if k2 == 1 or k2 == 2:
+    if k2 in [1, 2]:
         filename = misc.ask_for_value(
             msg="Enter filename with data to plot:  [only works with non customized file names]"
         )
