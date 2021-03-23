@@ -58,10 +58,7 @@ import datetime
 import json
 import logging
 import os
-import pickle
 import sys
-import time
-from json import JSONDecodeError
 
 import astroplan
 import astropy
@@ -86,11 +83,13 @@ from classes_methods.classes import (
     load_Eclipses_from_file,
 )
 from classes_methods.Helper_fun import help_fun_logger
-
-# from classes_methods import csv_file_import
 from classes_methods.misc import misc
 
-# Update IERS tables if necessary
+# """ Update most recent IERS data """
+# iers.Conf.iers_auto_url.set(
+#     "https://datacenter.iers.org/data/9/finals2000A.all"
+# )  # temporary fix for iers data
+# download_IERS_A(show_progress=True)
 IERS_Auto()
 
 plt.style.use(astropy_mpl_style)
@@ -106,7 +105,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def check_connection(host="http://exoplanetarchive.ipac.caltech.edu/"):  # Nasa Exoplanet Archive
+def check_connection(
+    host="http://exoplanetarchive.ipac.caltech.edu/",
+):  # Nasa Exoplanet Archive
     """Check Internet Connection to Nasa Exoplanet Archive"""
     req = requests.get(host)  # Python 3.x
     if req.ok:
@@ -118,10 +119,7 @@ def check_connection(host="http://exoplanetarchive.ipac.caltech.edu/"):  # Nasa 
     return req
 
 
-
-
-def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_new"):
-
+def parse_date(date, max_delta_days):
     max_delta_days = int(max_delta_days)
     if date == "" or date is None:
         date = datetime.date.today()
@@ -129,39 +127,35 @@ def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_ne
         date = datetime.date.fromisoformat(date)
 
     dt = datetime.timedelta(days=1)
-    d_end = max_delta_days * dt + date
+    date_end = max_delta_days * dt + date
+
+    return date, max_delta_days, date_end
+
+
+def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_new"):
+
+    date, max_delta_days, d_end = parse_date(date, max_delta_days)
 
     print(
         f"*** Running full transit analysis for transits between {date} and {d_end} ***"
     )
 
-    """ Update most recent IERS data """
-    get_IERS_data = (
-        "yes"  # not working at the moment, problem seams to be on IERS side.
-    )
-    timeoutcount = 0
-
-    iers.Conf.iers_auto_url.set(
-        "https://datacenter.iers.org/data/9/finals2000A.all"
-    )  # temporary fix for iers data
-    download_IERS_A(show_progress=True)
-
     # initialize list to sort exoplanet candidates and check if data are available to calculate observability.
-    Exoplanets = Exoplanets()
+    exoplanets = Exoplanets()
 
     try:
         """Load Planets from Nasa Exoplanet Archive"""
-        Exoplanets.Planet_finder(catalog)
+        exoplanets.Planet_finder(catalog)
     except Exception:
         raise Warning("something is not working yet with the PlanetList.")
 
     """ Check all Planets if they have the necessary properties in the database to process for transit observations """
-    Exoplanets.hasproperties(
+    exoplanets.hasproperties(
         catalog
     )  # work with Parse_list_transits in the same way as in the Transit_Example to retrieve all necessary transit information
     print(
         "Found {} planets in Nasa Archive with Transit data".format(
-            len(Exoplanets.Parse_planets_Nasa)
+            len(exoplanets.Parse_planets_Nasa)
         )
     )
 
@@ -172,18 +166,19 @@ def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_ne
     midnight = datetime.time(0, 0, 0)
     obs_time = Time(datetime.datetime.combine(Nights_paranal.date[0], midnight))
     Eclipses_List = []
-    for planet in Exoplanets.Parse_planets_Nasa:
+    for planet in exoplanets.Parse_planets_Nasa:
         Planet = Eclipses(max_delta_days, planet)
         Eclipses_List.append(Planet)
         Planet.Observability(
             obs_time, Nights_paranal, constraints=constraints, check_eclipse=1
         )
 
-    return ""
+    return exoplanets
 
 
 def call_etc_for_list_of_transits(date, max_delta_days, filename):
-    max_delta_days = int(max_delta_days)
+    date, max_delta_days, d_end = parse_date(date, max_delta_days)
+
     date = datetime.date.fromisoformat(date)
     Eclipses_List = load_Eclipses_from_file(filename, max_delta_days)
     return Eclipses_List
@@ -214,15 +209,12 @@ def etc_calculator_step(date, max_delta_days, Eclipses_List, minimum_SN=100):
     # for planet in Eclipses_List:
     #     if planet.name == 'WASP-163 b': #Work around for planets which are missing data but did not get filtered. Get the name of the planet that was last called and enter it here. Can contain several names.
     #         Eclipses_List.remove(planet)
-    if date == "" or date is None:
-        date = datetime.date.today()
-    else:
-        date = datetime.date.fromisoformat(date)
+    date, max_delta_days, d_end = parse_date(date, max_delta_days)
+
     date = (
         date.isoformat()
     )  # start date from which the nights in paranal are calculated
 
-    max_delta_days = int(max_delta_days)
     filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
 
     for planet in Eclipses_List:
@@ -262,14 +254,7 @@ def etc_calculator_step(date, max_delta_days, Eclipses_List, minimum_SN=100):
 
 
 def single_transit_calculation(date, max_delta_days, name, constraints):
-    max_delta_days = int(max_delta_days)
-    if date == "":
-        date = datetime.date.today()
-    else:
-        date = datetime.date.fromisoformat(date)
-
-    dt = datetime.timedelta(days=1)
-    d_end = max_delta_days * dt + date
+    date, max_delta_days, d_end = parse_date(date, max_delta_days)
 
     print(
         f"*** Running single transit analysis for transits between {date} and {d_end} ***"
@@ -381,7 +366,7 @@ constraints = [Night_cons_per_night, Altcons, Airmasscons, Mooncons]
 catalog = "nexa_new"
 
 minimum_SN = 100
-
+ETC_calculator = "n"
 
 ##########################################################################################################
 
@@ -530,11 +515,14 @@ if k in [1, 2, 3, 4]:
     else:
         raise Exception("What happened?")
 
+    date, max_delta_days, d_end = parse_date(date, max_delta_days)
+    filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
+
     ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
         data, filename, write_to_csv=1
     )
     ranked_events, Obs_events = fun.postprocessing_events(
-        d, Max_Delta_days, Nights, data
+        date, max_delta_days, Nights, data
     )
     fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
 

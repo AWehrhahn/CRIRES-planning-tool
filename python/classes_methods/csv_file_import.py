@@ -10,27 +10,26 @@ Initializes .csv files with lists of planets, could be extended to also process 
 
 import pandas as pd
 import sys, os
+from os.path import join, dirname
 
-
-path = os.getcwd() + '/csv_files'
+path = join(dirname(__file__),  '../csv_files')
 default_file = 'PlanetList'
 
-try:
+if len(sys.argv) > 1:
     file_name = sys.argv[1]
-except IndexError:
+else:
     file_name = default_file
 
 
 if len(file_name) == 0:
     file_name = default_file
     print('Default file ' + default_file + ' is being used')
-elif os.path.exists(path + '/' + file_name + '.csv') == False:
-    message = "Error:file {} does not exist in current directory".format(sys.argv[1])
-    err_msg = NameError(message)
-    raise err_msg
+elif os.path.exists(join(path, file_name + '.csv')) == False:
+    message = f"Error:file {file_name} does not exist in current directory"
+    raise FileNotFoundError(message)
 
 def main():
-    df = pd.read_csv(path + '/' + file_name + '.csv')
+    df = pd.read_csv(join(path, file_name + '.csv'))
     df_names = df['pl_name']
     return df_names
 
