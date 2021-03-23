@@ -8,12 +8,14 @@ Initializes .csv files with lists of planets, could be extended to also process 
 @author: jonaszbinden
 """
 
-import pandas as pd
-import sys, os
-from os.path import join, dirname
+import os
+import sys
+from os.path import dirname, join
 
-path = join(dirname(__file__),  '../csv_files')
-default_file = 'PlanetList'
+import pandas as pd
+
+path = join(dirname(__file__), "../csv_files")
+default_file = "PlanetList"
 
 if len(sys.argv) > 1:
     file_name = sys.argv[1]
@@ -23,14 +25,15 @@ else:
 
 if len(file_name) == 0:
     file_name = default_file
-    print('Default file ' + default_file + ' is being used')
-elif os.path.exists(join(path, file_name + '.csv')) == False:
+    print("Default file " + default_file + " is being used")
+elif os.path.exists(join(path, file_name + ".csv")) == False:
     message = f"Error:file {file_name} does not exist in current directory"
     raise FileNotFoundError(message)
 
+
 def main():
-    df = pd.read_csv(join(path, file_name + '.csv'))
-    df_names = df['pl_name']
+    df = pd.read_csv(join(path, file_name + ".csv"))
+    df_names = df["pl_name"]
     return df_names
 
 
