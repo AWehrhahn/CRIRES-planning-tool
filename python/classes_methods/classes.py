@@ -17,7 +17,8 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
+from tqdm import tqdm
 # from astroplan import EclipsingSystem
 # import astropy.coordinates
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_moon
@@ -97,25 +98,17 @@ class Exoplanets:
         """
         # Planet_try = NasaExoplanetArchive.query_planet(name, all_columns=True)
         path = join(dirname(__file__), "../csv_files")
-        if catalog == "nexa_new":
-            Candidate_List = pd.read_csv(join(path, "PlanetList.csv"))
-
-        elif catalog == "nexa_old":
-            Candidate_List = pd.read_csv(join(path, "PlanetList_old.csv"))
-
-        elif catalog == "custom":
-            Candidate_List = pd.read_csv(join(path, "PlanetList_edit.csv"))
-
-        self.Exoplanets_List_Nasa = [p for _, p in Candidate_List.iterrows()]
-        self.Exoplanet_not_Nasa = []
-
-        # for _, planet_try in Candidate_List.iterrows():
-        #     name = planet_try["pl_name"]
-        #     print("Planet " + name + " found in Nasa Exoplanet Archive\n")
-        #     self.Exoplanets_List_Nasa.append(planet_try)
-        #     if planet_try.empty:
-        #         print("Planet not in Nasa Exoplanet Archive\n")
-        #         self.Exoplanet_not_Nasa.append(name)
+        filenames = {
+            "nexa_new": join(path, "PlanetList.csv"),
+            "nexa_old": join(path, "PlanetList_old.csv"),
+            "custom": join(path, "PlanetList_edit.csv")
+        }
+        filename = filenames[catalog]
+        candidate_list = pd.read_csv(filename)
+        
+        self.exoplanet_list = candidate_list
+        self.exoplanets_list_nasa = [p for _, p in candidate_list.iterrows()]
+        self.exoplanet_not_nasa = []
 
     ##########################################################################################################
 
@@ -205,9 +198,9 @@ class Exoplanets:
                     or m.isnan(planet["dec"])
                 ):
                     self.Transit_data_missing.append(planet["pl_name"])
-                    print(
-                        f"Planet {planet['pl_name']} added to Transit_data_missing"
-                    )
+                    # print(
+                    #     f"Planet {planet['pl_name']} added to Transit_data_missing"
+                    # )
                 else:
                     self.Parse_planets_Nasa.append(planet)
                     # print(
@@ -272,15 +265,12 @@ class Nights(object):
         self.start = d
         self.end = d_end
         self.Max_Delta_days = (d_end - d).days
-        self.date = []
+        # self.date = []
         # self.night = []
         self.loaded = 0
 
-        for k in range(self.Max_Delta_days):
-            date = (
-                self.start + dt * k
-            )  # list with datetime objects for the midnights in question
-            self.date.append(date)
+        # list with datetime objects for the midnights in question
+        self.date = [self.start + dt * k for k in range(self.Max_Delta_days)]
 
     ##########################################################################################################
 
@@ -556,13 +546,14 @@ class Eclipses:
                 array containing a grid of timesteps for which the nights datetimes should get computed. Default is None
 
         """
+
         Planet_next_eclipse_Times = self.Planets_eclipse.next_primary_eclipse_time(
             obs_time, n_eclipses=self.num_eclipses
         )
         print(self.name + " is getting processed")
         # n_max = np.ceil(1/self.period_err)
-        for date in Nights.date:
-
+        def func(date):
+            result, result_target = [], []
             if check_target == 1:
                 """ Check if Nights object has attribute nights to calculate observability of target """
                 if hasattr(Nights, "night"):
@@ -637,7 +628,7 @@ class Eclipses:
                                 out[3] for out in airmass_moon_sep_obj_altaz_RESULT
                             ]
                             # print(moon_target_sep, moon_phase, airmass, obs_altazs)
-                            self.eclipse_observable.append(
+                            result.append(
                                 {
                                     "Name": self.name,
                                     "obs time": Planet_next_eclipse_per_night_MID,
@@ -695,7 +686,7 @@ class Eclipses:
                                         airmass,
                                         obs_altazs,
                                     ) = fun.airmass_moon_sep_obj_altaz(self, night[n])
-                                    self.target_observable.append(
+                                    result_target.append(
                                         {
                                             "Name": self.name,
                                             "Effective Temperature": self.star_Teff,
@@ -711,18 +702,17 @@ class Eclipses:
                                             },
                                         }
                                     )
+            return result, result_target
 
-                        # Alt_constraints = Altcons.compute_constraint(times=night, observer=paranal, targets=self.Coordinates)
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(func, date) for date in Nights.date]
 
-                        # Airmass_constraints = Airmasscons.compute_constraint(times=night, observer=paranal, targets=self.Coordinates)
+            for future in tqdm(as_completed(futures), total=len(futures)):
+                result = future.result()
+                self.eclipse_observable += result[0]
+                self.target_observable += result[1]
+        return self.eclipse_observable, self.target_observable
 
-                        # Night_constraint = night_cons.compute_constraint(times=night, observer=paranal, targets=self.Coordinates)
-
-            # if check_target == 1:
-            #     """ Write computed constraints to lists """
-            #     self.Airmass_window.append(Alt_constraints)
-            #     self.Alt_window.append(Airmass_constraints)
-            #     self.Time_window.append(Night_constraint)
 
 
 ##########################################################################################################

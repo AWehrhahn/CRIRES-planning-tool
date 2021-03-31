@@ -76,6 +76,8 @@ from astropy.visualization import astropy_mpl_style, quantity_support
 from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
 
 import classes_methods.Helper_fun as fun
+
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from classes_methods.classes import (
     Eclipses,
     Exoplanets,
@@ -117,6 +119,22 @@ def check_connection(
             "Check connection to {}, response code:{}".format(host, req.status_code)
         )
     return req
+
+def get_default_constraints():
+    """ Altitude constraints definition """
+    Altcons = astroplan.AltitudeConstraint(min=+30 * u.deg, max=None)
+
+    """ Airmass constraints definition """
+    Airmasscons = astroplan.AirmassConstraint(min=None, max=1.7)
+
+    """ Astronomical Nighttime constraints definition: begin and end of each night at paranal as AtNightConstraint.twilight_astronomical """
+    Night_cons_per_night = astroplan.AtNightConstraint.twilight_astronomical()
+
+    """ Moon Constraint """
+    Mooncons = astroplan.MoonSeparationConstraint(min=+45 * u.deg, max=None)
+
+    constraints = [Night_cons_per_night, Altcons, Airmasscons, Mooncons]
+    return constraints
 
 
 def parse_date(date, max_delta_days):
@@ -252,29 +270,22 @@ def etc_calculator_step(date, max_delta_days, Eclipses_List, minimum_SN=100):
     return Eclipses_List
 
 
-def single_transit_calculation(date, max_delta_days, name, constraints):
+def single_transit_calculation(date, max_delta_days, name, constraints, catalog="nexa_new", minimum_SN=100):
     date, max_delta_days, d_end = parse_date(date, max_delta_days)
 
     print(
         f"*** Running single transit analysis for transits between {date} and {d_end} ***"
     )
 
-    Exoplanet = Exoplanets()
-    try:
-        """Load Planets from Nasa Exoplanet Archive"""
-        Exoplanet.Planet_finder(catalog)
-    except Exception:
-        raise Warning("smth not working yet with the PlanetList.")
+    exoplanets = Exoplanets()
+    exoplanets.Planet_finder(catalog)
 
-    Exoplanet.hasproperties(catalog)
-    for planet in Exoplanet.Parse_planets_Nasa:
-        if planet["pl_name"] == name:
-            Planet = planet
-            flag_found = True
-    if flag_found == True:
-        pass
-    else:
+    exoplanets.hasproperties(catalog)
+    select = exoplanets.exoplanet_list["pl_name"] == name
+    planet = exoplanets.exoplanet_list[select]
+    if len(planet) == 0:
         raise Warning(f"Planet with name {name} not found in {catalog}")
+    planet = planet.iloc[0]
 
     """ Generates the class object Nights and calculates the nights for paranal between d and d_end """
     Nights_paranal = Nights(date, max_delta_days, LoadFromPickle=0)
@@ -282,322 +293,321 @@ def single_transit_calculation(date, max_delta_days, name, constraints):
     """ ETC part for single candidate exposure time calculation and number of possible exposures. """
     midnight = datetime.time(0, 0, 0)
     obs_time = Time(datetime.datetime.combine(Nights_paranal.date[0], midnight))
-    Planet = Eclipses(max_delta_days, Planet)
-    Planet.Observability(
+    planet = Eclipses(max_delta_days, planet)
+    planet.Observability(
         obs_time, Nights_paranal, constraints=constraints, check_eclipse=1
     )
 
-    for eclipse in Planet.eclipse_observable:
-        try:
-            fun.SN_Transit_Observation_Optimization(eclipse, Planet, snr=minimum_SN)
-        except Warning as w:
-            s = "Something went wrong in:{}:{}, taking next observation...".format(
-                Planet.name, eclipse["obs time"]
-            )
-            print(w)
-            print(s)
-            logging.exception(w)
-            logging.error(s)
-            break
-        except Exception as e:
-            # go back to menu
-            print(e)
-            logging.exception(e)
-            print("\a")
-            print("Catched random exception")
+    if len(planet.eclipse_observable) == 0:
+        raise Warning(f"No observable eclipse found for {name}")
 
-            date = (
-                date.isoformat()
-            )  # start date from which the nights in paranal are calculated
-            filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = []
+        for eclipse in planet.eclipse_observable:
+            futures += [
+                executor.submit(fun.SN_Transit_Observation_Optimization, 
+                eclipse, planet, snr=minimum_SN)
+                ]
+        wait(futures)
 
-            print(
-                f"We save what has been computed so far to a picklefile {filename}! "
-                "You may load that pickle file anytime later and continue from there. "
-                "Just use the function pickled_items to load manually and investigate "
-                "the output with next(output) or use load_planets_from_pickle to generate "
-                "a list of Eclipses instances again like Eclipses_List"
-            )
-            fun.pickle_dumper_objects(filename, Eclipses_List)
-            sys.exit()
+
+    # for eclipse in planet.eclipse_observable:
+    #     try:
+    #         fun.SN_Transit_Observation_Optimization(eclipse, planet, snr=minimum_SN)
+    #     except Warning as w:
+    #         s = f"Something went wrong in:{Planet.name}:{eclipse['obs time']}, taking next observation..."
+    #         print(w)
+    #         print(s)
+    #         logging.exception(w)
+    #         logging.error(s)
+    #         break
+    #     except Exception as e:
+    #         # go back to menu
+    #         print(e)
+    #         logging.exception(e)
+    #         print("\a")
+    #         print("Catched random exception")
+
+    #         date = (
+    #             date.isoformat()
+    #         )  # start date from which the nights in paranal are calculated
+    #         filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
+
+    #         print(
+    #             f"We save what has been computed so far to a picklefile {filename}! "
+    #             "You may load that pickle file anytime later and continue from there. "
+    #             "Just use the function pickled_items to load manually and investigate "
+    #             "the output with next(output) or use load_planets_from_pickle to generate "
+    #             "a list of Eclipses instances again like Eclipses_List"
+    #         )
+    #         fun.pickle_dumper_objects(filename, planet)
+    #         return
 
     # Store final Data
 
-    name = Planet.name.split(" ")
+    name = planet.name.split(" ")
     name = name[0] + name[1]
     filename = f"{name}_events_processed_{date}_{max_delta_days}d.pkl"
-    fun.pickle_dumper_objects(filename, Planet)
-    return Planet
+    fun.pickle_dumper_objects(filename, planet)
+    return planet
 
+if __name__ == "__main__":
+    check_connection()
 
-check_connection()
-
-""" Ask for menu input """
-k = misc.user_menu(
-    menu=(
-        "Run full transit calculation",
-        "Run call ETC part for a list of transits",
-        "Run single transit planning",
-        "Run single target planning",
-        "Plotting data of some result file",
-    )
-)
-
-
-""" Location and UTC offset Paranal """
-paranal = Observer.at_site("paranal", timezone="Chile/Continental")
-
-""" Altitude constraints definition """
-Altcons = astroplan.AltitudeConstraint(min=+30 * u.deg, max=None)
-
-""" Airmass constraints definition """
-Airmasscons = astroplan.AirmassConstraint(min=None, max=1.7)
-
-""" Astronomical Nighttime constraints definition: begin and end of each night at paranal as AtNightConstraint.twilight_astronomical """
-Night_cons_per_night = astroplan.AtNightConstraint.twilight_astronomical()
-
-""" Moon Constraint """
-Mooncons = astroplan.MoonSeparationConstraint(min=+45 * u.deg, max=None)
-
-constraints = [Night_cons_per_night, Altcons, Airmasscons, Mooncons]
-
-""" Catalog to get planetary data from, nexa_old -> provided catalog by astroquery.NasaExoplanetArchive or nexa_new -> alpha version of new catalog: Planetary Systems Composite Data"""
-catalog = "nexa_new"
-
-minimum_SN = 100
-ETC_calculator = "n"
-
-##########################################################################################################
-
-if k == 1:
-    """ Computes the observability of a list of Candidates """
-    date = misc.ask_for_value(
-        msg="Enter start date like 2020-06-01 or press enter to use todays date "
-    )
-    max_delta_days = misc.ask_for_value(
-        msg="Enter number of days to compute transits for "
-    )
-    ETC_calculator = misc.ask_for_value(
-        msg="Do you want to call the ETC calculator to process the results S/N ratio? (WARNING : Only works with stable internet connection!) y/n "
-    )
-
-    full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
-
-
-##########################################################################################################
-
-if k == 2:
-    ETC_calculator = "y"
-    date = misc.ask_for_value(
-        msg="Enter date like 2020-05-28 of the file of transit data you want to use "
-    )
-    max_delta_days = misc.ask_for_value(
-        msg="Enter timespan in days to the appropriate file "
-    )
-    filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
-    ans = misc.ask_for_value(
-        msg=f"Do you want to load file : {filename} to feed to ETC? [y,n]"
-    )
-    if ans == "n":
-        filename = misc.ask_for_value(msg="Enter filename with data to plot:  ")
-    elif ans == "y":
-        pass
-    else:
-        print("Gosh, what do you want then???")
-        sys.exit()
-
-    Eclipses_List = call_etc_for_list_of_transits(date, max_delta_days, filename)
-
-
-##########################################################################################################
-""" ETC part to process list of observable candidates """
-if ETC_calculator == "y":
-    Eclipses_List = etc_calculator_step(
-        date, max_delta_days, Eclipses_List, minimum_SN=minimum_SN
-    )
-
-
-##########################################################################################################
-
-if k == 3:
-
-    """ Only run single Planet candidate for observability and compute exact number of possible exposures thorugh the ETC """
-
-    date = misc.ask_for_value(
-        msg="Enter start date like 2020-06-01 or press enter to use todays date "
-    )
-    max_delta_days = misc.ask_for_value(
-        msg="Enter number of days to compute transits for "
-    )
-    name = misc.ask_for_value(
-        msg="Enter name like KELT-10 b of planet you want check observability "
-    )
-
-    Planet = single_transit_calculation(date, max_delta_days, name, constraints)
-
-
-##########################################################################################################
-
-if k == 4:
-
-    """ Run analysis of single target for its observability, if this should also be available for target lists, I need some more information about where these lists would come from. """
-
-    print("Coming soon")
-    sys.exit()
-
-    # print('Run through target properties manually or load from name...')
-    # name = misc.ask_for_value(msg='name of target ')
-    # target = NasaExoplanetArchive.query_star(name)
-
-    # d = misc.ask_for_value(msg='name of target ')
-    # Max_Delta_days = misc.ask_for_value(msg='name of target ')
-
-    # st_Teff = misc.ask_for_value(msg='name of target ')
-    # st_jmag = misc.ask_for_value(msg='name of target ')
-    # number_of_time_steps_per_night = misc.ask_for_value(msg='how many time steps per night, press enter for default value=1000')
-    # DIT = misc.ask_for_value(msg='name of target ')
-    # NDIT = misc.ask_for_value(msg='name of target ')
-
-    # """ Generates the class object Nights and calculates the nights for paranal between d and d_end """
-    # Nights_paranal = Nights(d, Max_Delta_days, LoadFromPickle=0)
-
-    # if delta_midnight == '':
-    #     delta_midnight = np.linspace(-12, 12, 1000) * u.hour # defines number of timesteps per 24 hours
-
-    # """
-    # Some docs here
-    # """
-
-    # target = Target(name, star_Teff, star_jmag)
-    # target.target_observability(Nights_paranal, constraints=constraints, delta_midnight=delta_midnight)
-
-    # obs_time = misc.ask_for_value(msg='Choose a observation time for which you want the signal to noisu ratio S/N')
-    # try :
-    #     fun.SN_Ratio_Target(obs_time, target)
-    # except Warning as w:
-    #     print(w)
-    #     print('Something went wrong in:{}:{}, taking next observation...'.format(Planet.name, eclipse['obs time']))
-    #     logging.exception(w)
-    #     logging.error('Something went wrong in:{}:{}, taking next observation...'.format(Planet.name, eclipse['obs time']))
-    #     break
-    # except Exception as e:
-    #     #go back to menu
-    #     print(e)
-    #     logging.exception(e)
-    #     print('\a')
-    #     print('Catched random exception')
-
-    #     print('Shall we save what has been computed so far to a picklefile? You may load that pickle file anytime later and continue from there. Just use the function pickled_items to load manually and investigate the output with next(output) or use load_planets_from_pickle to generate a list of Eclipses instances again like Eclipses_List')
-    #     save = input('Do you want to save? y/n ')
-    #     if save == 'y':
-    #         d = d.isoformat() # start date from which the nights in paranal are calculated
-    #         filename = 'Eclipse_events_processed_{}_{}d.pkl'.format(d, Max_Delta_days)
-    #         fun.pickle_dumper_objects(filename, Eclipses_List)
-    #         sys.exit()
-    #     elif save == 'n':
-    #         sys.exit()
-    #     else:
-    #         sys.exit()
-
-##########################################################################################################
-
-
-if k == 1 and ETC_calculator == "n":
-    sys.exit()
-
-if k in [1, 2, 3, 4]:
-    """ Storing data and plotting data """
-    if k in [1, 2, 4]:
-        data = Eclipses_List
-    elif k == 3:
-        data = Planet
-    else:
-        raise Exception("What happened?")
-
-    date, max_delta_days, d_end = parse_date(date, max_delta_days)
-    filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
-
-    ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
-        data, filename, write_to_csv=1
-    )
-    ranked_events, Obs_events = fun.postprocessing_events(
-        date, max_delta_days, Nights, data
-    )
-    fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
-
-k2 = misc.user_menu(
-    menu=(
-        "Plot candidates over full period",
-        "Plot single night of (mutual) target(s)",
-        "Get target finder image ",
-    )
-)
-
-
-if k == 5:
-    """ Plotting data of some result file """
-
-    if k2 in [1, 2]:
-        filename = misc.ask_for_value(
-            msg="Enter filename with data to plot:  [only works with non customized file names]"
+    """ Ask for menu input """
+    k = misc.user_menu(
+        menu=(
+            "Run full transit calculation",
+            "Run call ETC part for a list of transits",
+            "Run single transit planning",
+            "Run single target planning",
+            "Plotting data of some result file",
         )
-        if filename.split(".")[-1] == "pkl":
+    )
+
+
+    """ Location and UTC offset Paranal """
+    paranal = Observer.at_site("paranal", timezone="Chile/Continental")
+
+    constraints = get_default_constraints()
+
+    """ Catalog to get planetary data from, nexa_old -> provided catalog by astroquery.NasaExoplanetArchive or nexa_new -> alpha version of new catalog: Planetary Systems Composite Data"""
+    catalog = "nexa_new"
+
+    minimum_SN = 100
+    ETC_calculator = "n"
+
+    ##########################################################################################################
+
+    if k == 1:
+        """ Computes the observability of a list of Candidates """
+        date = misc.ask_for_value(
+            msg="Enter start date like 2020-06-01 or press enter to use todays date "
+        )
+        max_delta_days = misc.ask_for_value(
+            msg="Enter number of days to compute transits for "
+        )
+        ETC_calculator = misc.ask_for_value(
+            msg="Do you want to call the ETC calculator to process the results S/N ratio? (WARNING : Only works with stable internet connection!) y/n "
+        )
+
+        full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
+
+
+    ##########################################################################################################
+
+    if k == 2:
+        ETC_calculator = "y"
+        date = misc.ask_for_value(
+            msg="Enter date like 2020-05-28 of the file of transit data you want to use "
+        )
+        max_delta_days = misc.ask_for_value(
+            msg="Enter timespan in days to the appropriate file "
+        )
+        filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
+        ans = misc.ask_for_value(
+            msg=f"Do you want to load file : {filename} to feed to ETC? [y,n]"
+        )
+        if ans == "n":
+            filename = misc.ask_for_value(msg="Enter filename with data to plot:  ")
+        elif ans == "y":
             pass
         else:
-            filename = filename.split(".")[0] + ".pkl"
+            print("Gosh, what do you want then???")
+            sys.exit()
 
-        d = datetime.date.fromisoformat(filename.split("_")[-2])
-        Max_Delta_days = int((filename.split("_")[-1].split(".")[0]).split("d")[0])
-        Eclipses_List = load_Eclipses_from_file(filename, Max_Delta_days)
-
-
-if k2 == 1 and k == 5:
-    """ Plotting candidates over full period """
-    ranking, df_gen, df_frame, _ = fun.data_sorting_and_storing(
-        Eclipses_List, write_to_csv=0
-    )
-    ranked_events, Obs_events = fun.postprocessing_events(
-        d, Max_Delta_days, Nights, Eclipses_List
-    )
-    fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
-    ranking = fun.plotting_transit_data(
-        d, Max_Delta_days, ranking, Eclipses_List, Nights, ranked_events
-    )
-elif k2 == 1:
-    ranking = fun.plotting_transit_data(
-        d, Max_Delta_days, ranking, Eclipses_List, Nights, ranked_events
-    )
+        Eclipses_List = call_etc_for_list_of_transits(date, max_delta_days, filename)
 
 
-if k2 == 2:
-    """ Plot single night of (mutual) target(s) """
-    d = misc.ask_for_value(
-        msg="Enter date like 2020-05-28 of the night you want to investigate, CAUTION: dates are regarded with respect to UTC "
-    )
-    d = datetime.date.fromisoformat(d)
-    midn = datetime.time(0, 0, 0)
-    d = datetime.datetime.combine(d, midn)
-    name = misc.ask_for_value(
-        msg=f"Do you want to plot all mutually observable targets for the night of the {d}? Press enter, otherwise write the name of the target you want to plot "
-    )
-    found = 0
-    if name != "":
-        # if name == target.name:
-        #     fun.plot_night(d, location = paranal.location, obs_obj = target)
-        # else:
-        for planet in Eclipses_List:
-            if planet.name == name:
-                fun.plot_night(d, location=paranal.location, obs_obj=planet)
-                found = 1
-    if found == 0:
-        print("Did not get valid name, plotting all candidates...")
-        fun.plot_night(d, location=paranal.location, obs_obj=Eclipses_List)
+    ##########################################################################################################
+    """ ETC part to process list of observable candidates """
+    if ETC_calculator == "y":
+        Eclipses_List = etc_calculator_step(
+            date, max_delta_days, Eclipses_List, minimum_SN=minimum_SN
+        )
 
-if k2 == 3:
-    """ Get target finder image """
-    name = misc.ask_for_value(msg="Write the name of the target you want to plot ")
-    try:
-        fun.find_target_image(name)
-    except NameError:
-        name = misc.ask_for_value(msg=f"{name} does not exist, try again ")
-        fun.find_target_image(name)
+
+    ##########################################################################################################
+
+    if k == 3:
+
+        """ Only run single Planet candidate for observability and compute exact number of possible exposures thorugh the ETC """
+
+        date = misc.ask_for_value(
+            msg="Enter start date like 2020-06-01 or press enter to use todays date "
+        )
+        max_delta_days = misc.ask_for_value(
+            msg="Enter number of days to compute transits for "
+        )
+        name = misc.ask_for_value(
+            msg="Enter name like KELT-10 b of planet you want check observability "
+        )
+
+        Planet = single_transit_calculation(date, max_delta_days, name, constraints, Eclipses_List)
+
+
+    ##########################################################################################################
+
+    if k == 4:
+
+        """ Run analysis of single target for its observability, if this should also be available for target lists, I need some more information about where these lists would come from. """
+
+        print("Coming soon")
+        sys.exit()
+
+        # print('Run through target properties manually or load from name...')
+        # name = misc.ask_for_value(msg='name of target ')
+        # target = NasaExoplanetArchive.query_star(name)
+
+        # d = misc.ask_for_value(msg='name of target ')
+        # Max_Delta_days = misc.ask_for_value(msg='name of target ')
+
+        # st_Teff = misc.ask_for_value(msg='name of target ')
+        # st_jmag = misc.ask_for_value(msg='name of target ')
+        # number_of_time_steps_per_night = misc.ask_for_value(msg='how many time steps per night, press enter for default value=1000')
+        # DIT = misc.ask_for_value(msg='name of target ')
+        # NDIT = misc.ask_for_value(msg='name of target ')
+
+        # """ Generates the class object Nights and calculates the nights for paranal between d and d_end """
+        # Nights_paranal = Nights(d, Max_Delta_days, LoadFromPickle=0)
+
+        # if delta_midnight == '':
+        #     delta_midnight = np.linspace(-12, 12, 1000) * u.hour # defines number of timesteps per 24 hours
+
+        # """
+        # Some docs here
+        # """
+
+        # target = Target(name, star_Teff, star_jmag)
+        # target.target_observability(Nights_paranal, constraints=constraints, delta_midnight=delta_midnight)
+
+        # obs_time = misc.ask_for_value(msg='Choose a observation time for which you want the signal to noisu ratio S/N')
+        # try :
+        #     fun.SN_Ratio_Target(obs_time, target)
+        # except Warning as w:
+        #     print(w)
+        #     print('Something went wrong in:{}:{}, taking next observation...'.format(Planet.name, eclipse['obs time']))
+        #     logging.exception(w)
+        #     logging.error('Something went wrong in:{}:{}, taking next observation...'.format(Planet.name, eclipse['obs time']))
+        #     break
+        # except Exception as e:
+        #     #go back to menu
+        #     print(e)
+        #     logging.exception(e)
+        #     print('\a')
+        #     print('Catched random exception')
+
+        #     print('Shall we save what has been computed so far to a picklefile? You may load that pickle file anytime later and continue from there. Just use the function pickled_items to load manually and investigate the output with next(output) or use load_planets_from_pickle to generate a list of Eclipses instances again like Eclipses_List')
+        #     save = input('Do you want to save? y/n ')
+        #     if save == 'y':
+        #         d = d.isoformat() # start date from which the nights in paranal are calculated
+        #         filename = 'Eclipse_events_processed_{}_{}d.pkl'.format(d, Max_Delta_days)
+        #         fun.pickle_dumper_objects(filename, Eclipses_List)
+        #         sys.exit()
+        #     elif save == 'n':
+        #         sys.exit()
+        #     else:
+        #         sys.exit()
+
+    ##########################################################################################################
+
+
+    if k == 1 and ETC_calculator == "n":
+        sys.exit()
+
+    if k in [1, 2, 3, 4]:
+        """ Storing data and plotting data """
+        if k in [1, 2, 4]:
+            data = Eclipses_List
+        elif k == 3:
+            data = Planet
+        else:
+            raise Exception("What happened?")
+
+        date, max_delta_days, d_end = parse_date(date, max_delta_days)
+        filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
+
+        ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
+            data, filename, write_to_csv=1
+        )
+        ranked_events, Obs_events = fun.postprocessing_events(
+            date, max_delta_days, Nights, data
+        )
+        fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
+
+    k2 = misc.user_menu(
+        menu=(
+            "Plot candidates over full period",
+            "Plot single night of (mutual) target(s)",
+            "Get target finder image ",
+        )
+    )
+
+
+    if k == 5:
+        """ Plotting data of some result file """
+
+        if k2 in [1, 2]:
+            filename = misc.ask_for_value(
+                msg="Enter filename with data to plot:  [only works with non customized file names]"
+            )
+            if filename.split(".")[-1] == "pkl":
+                pass
+            else:
+                filename = filename.split(".")[0] + ".pkl"
+
+            d = datetime.date.fromisoformat(filename.split("_")[-2])
+            Max_Delta_days = int((filename.split("_")[-1].split(".")[0]).split("d")[0])
+            Eclipses_List = load_Eclipses_from_file(filename, Max_Delta_days)
+
+
+    if k2 == 1 and k == 5:
+        """ Plotting candidates over full period """
+        ranking, df_gen, df_frame, _ = fun.data_sorting_and_storing(
+            Eclipses_List, write_to_csv=0
+        )
+        ranked_events, Obs_events = fun.postprocessing_events(
+            d, Max_Delta_days, Nights, Eclipses_List
+        )
+        fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
+        ranking = fun.plotting_transit_data(
+            d, Max_Delta_days, ranking, Eclipses_List, Nights, ranked_events
+        )
+    elif k2 == 1:
+        ranking = fun.plotting_transit_data(
+            d, Max_Delta_days, ranking, Eclipses_List, Nights, ranked_events
+        )
+
+
+    if k2 == 2:
+        """ Plot single night of (mutual) target(s) """
+        d = misc.ask_for_value(
+            msg="Enter date like 2020-05-28 of the night you want to investigate, CAUTION: dates are regarded with respect to UTC "
+        )
+        d = datetime.date.fromisoformat(d)
+        midn = datetime.time(0, 0, 0)
+        d = datetime.datetime.combine(d, midn)
+        name = misc.ask_for_value(
+            msg=f"Do you want to plot all mutually observable targets for the night of the {d}? Press enter, otherwise write the name of the target you want to plot "
+        )
+        found = 0
+        if name != "":
+            # if name == target.name:
+            #     fun.plot_night(d, location = paranal.location, obs_obj = target)
+            # else:
+            for planet in Eclipses_List:
+                if planet.name == name:
+                    fun.plot_night(d, location=paranal.location, obs_obj=planet)
+                    found = 1
+        if found == 0:
+            print("Did not get valid name, plotting all candidates...")
+            fun.plot_night(d, location=paranal.location, obs_obj=Eclipses_List)
+
+    if k2 == 3:
+        """ Get target finder image """
+        name = misc.ask_for_value(msg="Write the name of the target you want to plot ")
+        try:
+            fun.find_target_image(name)
+        except NameError:
+            name = misc.ask_for_value(msg=f"{name} does not exist, try again ")
+            fun.find_target_image(name)

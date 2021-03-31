@@ -17,6 +17,8 @@ import time
 from json import JSONDecodeError
 from os.path import dirname, join
 
+from tempfile import NamedTemporaryFile
+
 import astroplan.constraints
 import astropy
 import matplotlib as mpl
@@ -127,27 +129,8 @@ def Etc_calculator_Texp(obs_obj, obs_time, snr=100):
         gsmag=gsmag,
     )
 
-    ETC.write_etc_format_file()
-    try:
-        NDIT, output = ETC.run_etc_calculator(obs_obj.name, obs_time)
-    except Exception as e:
-        print(type(e))
-        if (
-            type(e) == json.decoder.JSONDecodeError
-        ):  # catches errors in the etc-form.json input file for the ETC calculator
-            # Routine to fix the JSONDecodeError, tries to find the false input.
-            ETC.etc_debugger(
-                "snr-Templ",
-                obs_obj.name,
-                obs_time,
-                snr=snr,
-                temperature=obs_obj.star_Teff,
-                brightness=obs_obj.star_jmag,
-                airmass=airmass,
-                moon_target_sep=moon_target_sep,
-                moon_phase=moon_phase,
-                gsmag=gsmag,
-            )
+    NDIT, output = ETC.run_etc_calculator(ETC.input.__dict__)
+   
     # Routine to change ndit to 16-32 and change dit accordingly:
     cycles = 0
     while NDIT < 16 or NDIT > 32:
@@ -463,8 +446,7 @@ def SN_Transit_Observation_Optimization(eclipse, planet, snr=100):
 
         """ Find how many single exposures are possible to take """
 
-        Exposure_times = []
-        Exposure_times.append(Exposure_time)
+        Exposure_times = [Exposure_time]
         SN_data_overall = []
         num_exp = 1
         range_obs_times = Exposure_time
