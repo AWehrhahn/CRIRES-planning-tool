@@ -16,6 +16,8 @@ import json
 import logging
 import os
 
+from astropy import units as u
+
 # import pandas as pd
 import time
 from functools import wraps
@@ -30,12 +32,6 @@ from classes_methods import etc_cli, misc
 # from requests import Session
 from requests_futures.sessions import FuturesSession
 
-try:
-    from types import SimpleNamespace as Namespace
-except ImportError:
-    # Python 2.x fallback
-    from argparse import Namespace
-
 # TODO! workaround until we figure put how to handle ssl certificate correctly
 import warnings
 warnings.filterwarnings('ignore', message='Unverified HTTPS request')
@@ -48,6 +44,7 @@ JSONDecodeWarning = Warning(
 )
 NDITWarning = Warning("NDIT not available from output file")
 
+logger = logging.getLogger(__name__)
 
 def DecodeWarning(key, value):
     DecodeWarning = FutureWarning(
@@ -60,7 +57,7 @@ ErrorNotFoundWarning = DeprecationWarning(
     "Sorry, I cannot find the error, check the file etc-format.json and try to run it manually on the ETC calculator webpage. \n Maybe she can help you find the error..."
 )
 
-ditSTD = 10  # default value for DIT
+dit_std = 10  # default value for DIT
 nditSTD = 1  # default value for NDIT
 
 ##########################################################################################################
@@ -99,29 +96,16 @@ class etc_form:
                 be blackbody with an effective Temperature Teff, then use ''snr-Teff'' and ''ndit-Teff'' respectively.
 
         """
-        path = join(dirname(__file__), "../json_files")
+        filenames = {
+            "snr-Teff": "etc-form-default-snr-Teff.json",
+            "ndit-Teff": "etc-form-default-ndit-Teff.json",
+            "snr-Templ": "etc-form-default-ndit-Templ.json",
+            "ndit-Templ": "etc-form-default-ndit-Templ.json",
+        }
+        filename = join(dirname(__file__), "../json_files", filenames[inputtype])
 
-        try:
-            if inputtype == "snr-Teff":
-                with open(join(path, "etc-form-default-snr-Teff.json")) as args:
-                    etc_obj = json.load(args, object_hook=lambda d: Namespace(**d))
-            elif inputtype == "ndit-Teff":
-                with open(join(path, "etc-form-default-ndit-Teff.json")) as args:
-                    etc_obj = json.load(args, object_hook=lambda d: Namespace(**d))
-            elif inputtype == "snr-Templ":
-                with open(join(path, "etc-form-default-ndit-Templ.json")) as args:
-                    etc_obj = json.load(args, object_hook=lambda d: Namespace(**d))
-            elif inputtype == "ndit-Templ":
-                with open(join(path, "etc-form-default-ndit-Templ.json")) as args:
-                    etc_obj = json.load(args, object_hook=lambda d: Namespace(**d))
-            else:
-                raise KeyError("wrong inputtype: {}".format(inputtype))
-        except FileNotFoundError:
-            raise FileNotFoundError(
-                "File '{}/etc-form-default-{}.json' is not existing or not in current directory".format(
-                    path, inputtype
-                )
-            )
+        with open(filename) as args:
+            etc_obj = json.load(args)
         self.input = etc_obj
 
     ##########################################################################################################
@@ -174,73 +158,60 @@ class etc_form:
         """
 
         if "airmass" in kwargs:
-            self.input.sky.airmass = kwargs.get("airmass")
+            self.input["sky"]["airmass"] = kwargs["airmass"].to_value(1)
             # self.input.sky.airmass = 12 # Chabis Test
 
         if "moon_target_sep" in kwargs:
-            self.input.sky.moon_target_sep = kwargs.get("moon_target_sep")[0]
-            self.input.sky.moon_alt = kwargs.get("moon_target_sep")[1]
+            self.input["sky"]["moon_target_sep"] = kwargs["moon_target_sep"][0].to_value(u.deg)
+            self.input["sky"]["moon_alt"] = kwargs["moon_target_sep"][1].to_value(u.deg)
 
         if "moon_phase" in kwargs:
-            self.input.sky.moon_sun_sep = kwargs.get("moon_phase")
+            self.input["sky"]["moon_sun_sep"] = kwargs["moon_phase"].to_value(u.deg)
 
-        if "snr" in kwargs:
-            self.input.timesnr.snr.snr = kwargs.get("snr")
-        else:
-            self.input.timesnr.snr.snr = 100  # default signal to noise ratio: 100
+        self.input["timesnr"]["snr"]["snr"] = kwargs.get("snr", 100)
         if "dit" in kwargs:
-            self.input.timesnr.dit = kwargs.get("dit")
+            self.input["timesnr"]["dit"] = kwargs.get("dit")
 
-        if self.input.target.sed.spectrum.spectrumtype == "template":
+        if self.input["target"]["sed"]["spectrum"]["spectrumtype"] == "template":
             if "temperature" in kwargs:
-                temperature = kwargs.get("temperature")
+                temperature = kwargs["temperature"].to_value(u.K)
                 if temperature > 8000:
-                    print(
+                    logger.warning(
                         f"WARNING : Temperature exceeds MARCS spT catalog levels! Teff = {temperature}, taking T = 8000 K"
                     )
                     temperature = 8000
                 elif temperature < 4000:
-                    print(
+                    logger.warning(
                         f"WARNING : Temperature does not reach lower MARCS spT catalog levels! Teff = {temperature}, taking T = 4000 K"
                     )
                     temperature = 4000
                 else:
-                    temperature = int(np.round(temperature / 500) * 500)
-                self.input.target.sed.spectrum.params.spectype = f"p{temperature}:g+4.0:m0.0:t02:st:z+0.00:a+0.00:c+0.00:n+0.00:o+0.00"
+                    temperature = int(np.round(temperature / 500) * 500) 
+                self.input["target"]["sed"]["spectrum"]["params"]["spectype"] = f"p{temperature}:g+4.0:m0.0:t02:st:z+0.00:a+0.00:c+0.00:n+0.00:o+0.00"
 
-        elif self.input.target.sed.spectrum.spectrumtype == "blackbody":
+        elif self.input["target"]["sed"]["spectrum"]["spectrumtype"] == "blackbody":
             if "temperature" in kwargs:
-                self.input.target.sed.spectrum.params.temperature = kwargs.get(
-                    "temperature"
-                )
+                self.input["target"]["sed"]["spectrum"]["params"]["temperature"] = kwargs["temperature"].to_value(u.K)
 
         if "gsmag" in kwargs:
-            self.input.seeingiqao.params.gsmag = kwargs.get("gsmag")
+            self.input["seeingiqao"]["params"]["gsmag"] = kwargs["gsmag"].to_value(u.mag)
 
         if "sptype" in kwargs:
-            self.input.seeingiqao.params.sptype = kwargs.get("sptype")
+            self.input["seeingiqao"]["params"]["sptype"] = kwargs["sptype"]
 
         if "brightness" in kwargs:
-            self.input.target.brightness.params.mag = kwargs.get("brightness")
+            self.input["target"]["brightness"]["params"]["mag"] = kwargs.get("brightness").to_value(u.mag)
 
         if "inputtype" in kwargs:
-            self.input.timesnr.inputtype = kwargs.get("inputtype")
+            self.input["timesnr"]["inputtype"] = kwargs.get("inputtype")
 
-        if self.input.timesnr.inputtype == "snr":
-            if kwargs.get("dit") == None:
-                self.input.timesnr.dit = ditSTD
-            else:
-                self.input.timesnr.dit = kwargs.get("dit")
+        if self.input["timesnr"]["inputtype"] == "snr":
+            self.input["timesnr"]["dit"] = kwargs.get("dit", dit_std)
 
-        elif self.input.timesnr.inputtype == "ndit":
-            if kwargs.get("dit") == None:
-                self.input.timesnr.ndit = ditSTD
-            else:
-                self.input.timesnr.ndit = kwargs.get("ndit")
-            if kwargs.get("ndit") == None:
-                self.input.timesnr.ndit = ditSTD
-            else:
-                self.input.timesnr.ndit = kwargs.get("ndit")
+        elif self.input["timesnr"]["inputtype"] == "ndit":
+            self.input["timesnr"]["dit"] = kwargs.get("dit", dit_std)
+            self.input["timesnr"]["ndit"] = kwargs.get("ndit", dit_std)
+        return self.input
 
     ##########################################################################################################
 
@@ -284,14 +255,15 @@ class etc_form:
         """
         # Try to access the ETC server, give it a few tries if necessary
         future = call_ETC("crires", input_data, output_filename)
-        output = future.result()
-        output = Namespace(**output.data)
+        output = future.result().data
+        return output
 
-        if self.input.timesnr.inputtype == "ndit":
-            NDIT = self.input.timesnr.ndit
+    def get_ndit(self, output):
+        if self.input["timesnr"]["inputtype"] == "ndit":
+            ndit = self.input["timesnr"]["ndit"]
         else:
-            NDIT = output.data.time.ndit
-        return NDIT, output
+            ndit = output["data"]["time"]["ndit"]
+        return ndit
 
     ##########################################################################################################
 
@@ -420,13 +392,16 @@ class etc_form:
 
 def response_hook(resp, *args, **kwargs):
     # parse the json storing the result on the response object
-    resp.data = resp.json()
+    try:
+        resp.data = resp.json()
+    except JSONDecodeError:
+        pass
 
 def send_request(post_data, url, uploadfile=None):
     session = FuturesSession()
     session.hooks['response'] = response_hook
 
-    kwargs = {"data": json.dumps(post_data, cls=FormEncoder), "verify": False}
+    kwargs = {"data": json.dumps(post_data), "verify": False}
 
     if uploadfile is None:
         kwargs["headers"] = {'Content-Type': 'application/json'}

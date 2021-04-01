@@ -156,6 +156,7 @@ def parse_date(date, max_delta_days):
 
     return date, max_delta_days, date_end
 
+
 def parallel_func(planet, max_delta_days, obs_time, nights_paranal, constraints):
     """ This is used in  full_transit_calculation for parrallel processing """
     eclipse = Eclipses(max_delta_days, planet)
@@ -163,6 +164,7 @@ def parallel_func(planet, max_delta_days, obs_time, nights_paranal, constraints)
         obs_time, nights_paranal, constraints=constraints, check_eclipse=True,
     )
     return eclipse
+
 
 def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_new"):
 
@@ -196,12 +198,23 @@ def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_ne
             total=n_planets,
             desc="Launched Processes",
         ):
-            futures += [executor.submit(parallel_func, planet, max_delta_days, obs_time, nights_paranal, constraints)]
+            futures += [
+                executor.submit(
+                    parallel_func,
+                    planet,
+                    max_delta_days,
+                    obs_time,
+                    nights_paranal,
+                    constraints,
+                )
+            ]
 
         for future in tqdm(
             as_completed(futures), total=n_planets, desc="Collected Processes"
         ):
-            eclipses_list += [future.result()]
+            result = future.result()
+            if len(result.eclipse_observable) != 0:
+                eclipses_list += [result]
 
     return eclipses_list
 
@@ -240,17 +253,21 @@ def etc_calculator_step(date, max_delta_days, eclipses_list, minimum_SN=100):
     #     if planet.name == 'WASP-163 b': #Work around for planets which are missing data but did not get filtered. Get the name of the planet that was last called and enter it here. Can contain several names.
     #         Eclipses_List.remove(planet)
     date, max_delta_days, d_end = parse_date(date, max_delta_days)
-
     # start date from which the nights in paranal are calculated
     date = date.isoformat()
 
-    filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
+    with ProcessPoolExecutor(max_workers=None) as executor:
+        futures = {}
+        for i, planet in enumerate(eclipses_list):
+            for j, eclipse in enumerate(planet.eclipse_observable):
+                futures[executor.submit(fun.snr_estimate_nexposures, eclipse, planet, snr=minimum_SN)] = (i, j)
 
-    for planet in eclipses_list:
-        for eclipse in planet.eclipse_observable:
-            fun.snr_estimate_nexposures(eclipse, planet, snr=minimum_SN)
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Eclipses"):
+            i, j = futures[future]
+            eclipses_list[i].eclipse_observable[j] = future.result()
 
     # Store final Data
+    filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
     fun.pickle_dumper_objects(filename, eclipses_list)
 
     return eclipses_list
@@ -270,10 +287,10 @@ def single_transit_calculation(
     exoplanets.filter_data()
 
     select = exoplanets.data_complete["pl_name"] == name
-    eclipse = exoplanets.data_complete[select]
-    if len(eclipse) == 0:
+    planet = exoplanets.data_complete[select]
+    if len(planet) == 0:
         raise Warning(f"Planet with name {name} not found in {catalog}")
-    eclipse = eclipse.iloc[0]
+    planet = planet.iloc[0]
 
     """ Generates the class object Nights and calculates the nights for paranal between d and d_end """
     nights_paranal = Nights(date, max_delta_days, load_from_pickle=0)
@@ -281,7 +298,7 @@ def single_transit_calculation(
     """ ETC part for single candidate exposure time calculation and number of possible exposures. """
     midnight = datetime.time(0, 0, 0)
     obs_time = Time(datetime.datetime.combine(nights_paranal.date[0], midnight))
-    eclipse = Eclipses(max_delta_days, eclipse)
+    eclipse = Eclipses(max_delta_days, planet)
     eclipse.observability(
         obs_time, nights_paranal, constraints=constraints, check_eclipse=1
     )
@@ -291,12 +308,12 @@ def single_transit_calculation(
 
     with ThreadPoolExecutor(max_workers=None) as executor:
         futures = []
-        for eclipse in eclipse.eclipse_observable:
+        for ecl in eclipse.eclipse_observable:
             futures += [
                 executor.submit(
                     fun.SN_Transit_Observation_Optimization,
-                    eclipse,
-                    eclipse,
+                    ecl,
+                    planet,
                     snr=minimum_SN,
                 )
             ]

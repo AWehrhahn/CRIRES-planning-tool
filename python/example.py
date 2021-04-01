@@ -1,7 +1,7 @@
 from astropy import units as u
 import astroplan
 
-from Transit_List import single_transit_calculation, get_default_constraints, full_transit_calculation
+from Transit_List import single_transit_calculation, get_default_constraints, full_transit_calculation, etc_calculator_step
 
 # TODO: Optimization
 # Planet Observability takes a lot of time
@@ -12,8 +12,9 @@ max_delta_days = 100
 name = "WASP-107 b"
 constraints = get_default_constraints()
 
-# planet = single_transit_calculation(date, max_delta_days, name, constraints)
+eclipse = single_transit_calculation(date, max_delta_days, name, constraints)
 
 eclipses_list = full_transit_calculation(date, max_delta_days, constraints)
+eclipses_list = etc_calculator_step(date, max_delta_days, eclipses_list)
 
 pass
