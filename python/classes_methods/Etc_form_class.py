@@ -27,6 +27,7 @@ import requests
 
 from classes_methods import etc_cli, misc
 
+# from requests import Session
 from requests_futures.sessions import FuturesSession
 
 try:

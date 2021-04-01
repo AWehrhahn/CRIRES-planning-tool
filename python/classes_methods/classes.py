@@ -10,6 +10,7 @@ Classes for Transit_List observability
 
 import math as m
 from os.path import dirname, join
+import logging
 
 import astroplan
 import astropy
@@ -17,7 +18,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, as_completed, wait
+# from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from tqdm import tqdm
 
 # from astroplan import EclipsingSystem
@@ -52,6 +53,7 @@ from classes_methods.Helper_fun import help_fun_logger
 """ Location and UTC offset Paranal """
 paranal = Observer.at_site("paranal", timezone="Chile/Continental")
 
+logger = logging.getLogger(__name__)
 ##########################################################################################################
 
 
@@ -66,25 +68,26 @@ class Exoplanets:
             Initialize lists to sort the planets retrieved from Nasa Exoplanet Archive according
             to the available data to compute Transits.
 
-            Exoplanets_List_Nasa : contains all planets found in the Nasa Exoplanet Archive with names from a name-list.
+            data : contains all planets found in the Nasa Exoplanet Archive with names from a name-list.
 
-            Exoplanet_not_Nasa : contains all the names for which no data was found in Nasa Exoplanet Archive
-
-            Transit_data_missing : contains all the planet names for which not all the necessary datas and infos about the planet were available.
+            data_missing : contains all the planet names for which not all the necessary datas and infos about the planet were available.
 
             Parse_Planet_Nasa : contains all planet tables for which the necessary data about the planet have been found.
                                 This list gets used for later processing of the planets to asses their observability.
 
         """
-        self.Exoplanets_List_Nasa = []
-        self.Exoplanet_not_Nasa = []
+        #:pd.DataFrame: contains all planets found in the Nasa Exoplanet Archive with names from a name-list.
+        self.data = []
+        #:List: same as data, but in a list
+        self.data_list = []
+        #:pd.DataFrame: contains all the planet names for which not all the necessary datas and infos about the planet were available.
+        self.data_missing = []
+        #:pd.DataFrame: contains all planet tables for which the necessary data about the planet have been found. This list gets used for later processing of the planets to asses their observability.
+        self.data_complete = []
+        #:str: The catalog that was used as the data source
+        self.catalog = None
 
-        self.Transit_data_missing = []
-        self.Parse_planets_Nasa = []
-        self.Fail = []
-
-    @help_fun_logger
-    def Planet_finder(self, catalog):
+    def load_catalog(self, catalog):
         """ 
         
             Checking if Planet can be found in Nasa Exoplanet Archive 
@@ -97,67 +100,65 @@ class Exoplanets:
         
         
         """
-        # Planet_try = NasaExoplanetArchive.query_planet(name, all_columns=True)
-        path = join(dirname(__file__), "../csv_files")
         filenames = {
-            "nexa_new": join(path, "PlanetList.csv"),
-            "nexa_old": join(path, "PlanetList_old.csv"),
-            "custom": join(path, "PlanetList_edit.csv"),
+            "nexa_new": "PlanetList.csv",
+            "nexa_old": "PlanetList_old.csv",
+            "custom": "PlanetList_edit.csv",
         }
-        filename = filenames[catalog]
+        # Use a standard catalog if available
+        # Otherwise interpret it as a filename
+        if catalog in filenames.keys():
+            filename = join(dirname(__file__), "../csv_files", filenames[catalog])
+        else:
+            filename = catalog
+
         candidate_list = pd.read_csv(filename)
 
-        self.exoplanet_list = candidate_list
-        self.exoplanets_list_nasa = [p for _, p in candidate_list.iterrows()]
-        self.exoplanet_not_nasa = []
+        self.data = candidate_list
+        self.data_list = [p for _, p in candidate_list.iterrows()]
+        self.catalog = catalog
+        return self.data
 
     ##########################################################################################################
 
     @help_fun_logger
-    def hasproperties(self, catalog):
+    def filter_data(self):
         """
-            Checks if the planet tables have all the necessary data for later processing.
+        Checks if the planet tables have all the necessary data for later processing.
 
-            Returns
-            -------
-            None.
+        Parameters
+        ----------
+        catalog: str
+            T
 
         """
-        if catalog == "nexa_old":
+        if self.catalog == "nexa_old":
 
-            for planet in self.Exoplanets_List_Nasa:
+            for planet in self.data:
                 flag = None
-                print("Checking Planet " + planet["pl_name"] + " for Transit Data")
+                logger.info(f"Checking Planet {planet['pl_name']} for Transit Data")
                 if np.ma.is_masked(planet["pl_tranmid"][0]) is True:
-                    print(
-                        "Planet "
-                        + planet["pl_name"][0]
-                        + " has no data about transit mid\n"
-                    )
+                    logger.warning(f"Planet {planet['pl_name'][0]} has no data about transit mid")
                     flag = True
                 if np.ma.is_masked(planet["pl_orbper"][0]) is True:
-                    print(
-                        "Planet "
-                        + planet["pl_name"][0]
-                        + " has no data about orbit period\n"
-                    )
+                    logger.warning(f"Planet {planet['pl_name'][0]} has no data about orbit period")
                     flag = True
                 if np.ma.is_masked(planet["pl_trandur"][0]) is True:
-                    print(
+                    logger.warning(
                         "Planet "
                         + planet["pl_name"][0]
                         + " has no data about transit duration\n"
                     )
                     flag = True
                 if np.ma.is_masked(planet["ra"][0]) is True:
-                    print(
+                    logger.warning(
                         "Planet "
                         + planet["pl_name"][0]
                         + " has no data about transit duration\n"
                     )
                     flag = True
                 if np.ma.is_masked(planet["dec"][0]) is True:
-                    print(
+                    logger.warning(
                         "Planet "
                         + planet["pl_name"][0]
                         + " has no data about transit duration\n"
@@ -168,53 +169,39 @@ class Exoplanets:
                 except Exception:
                     try:
                         sky_coords = planet["sky_coord"][0]
-                        print("no Sky coordinates found for " + planet["pl_name"][0])
+                        logger.warning("No Sky coordinates found for " + planet["pl_name"][0])
                     except:
                         flag = True
                 if not sky_coords:
                     flag = True
 
                 if not flag:
-                    self.Parse_planets_Nasa.append(planet)
-                    print(
+                    self.data_complete.append(planet)
+                    logger.info(
                         "Planet " + planet["pl_name"] + " added to Transit_data_avail\n"
                     )
                 else:
-                    self.Transit_data_missing.append(planet["pl_name"])
-                    print(
-                        "Planet "
-                        + planet["pl_name"]
-                        + " added to Transit_data_missing\n"
-                    )
+                    self.data_missing.append(planet["pl_name"])
+                    logger.info("Planet " + planet["pl_name"] + " added to data_missing\n")
 
-        elif catalog == "nexa_new":
-
-            for planet in self.Exoplanets_List_Nasa:
-                # print("Checking Planet " + planet["pl_name"] + " for Transit Data")
-                if (
-                    m.isnan(planet["ra"])
-                    or m.isnan(planet["pl_trandur"])
-                    or m.isnan(planet["pl_orbper"])
-                    or m.isnan(planet["pl_tranmid"])
-                    or m.isnan(planet["dec"])
-                ):
-                    self.Transit_data_missing.append(planet["pl_name"])
-                    # print(
-                    #     f"Planet {planet['pl_name']} added to Transit_data_missing"
-                    # )
-                else:
-                    self.Parse_planets_Nasa.append(planet)
-                    # print(
-                    #     f"Planet {planet['pl_name']} added to Transit_data_avail"
-                    # )
+        elif self.catalog == "nexa_new":
+            select = (
+                np.isnan(self.data["ra"])
+                | np.isnan(self.data["pl_trandur"])
+                | np.isnan(self.data["pl_orbper"])
+                | np.isnan(self.data["pl_tranmid"])
+                | np.isnan(self.data["dec"])
+            )
+            self.data_missing = self.data[select]
+            self.data_complete = self.data[~select]
+        return self.data_complete
 
 
 ##########################################################################################################
 
 
 class Nights(object):
-    @help_fun_logger
-    def __init__(self, d, Max_Delta_days, LoadFromPickle=0):
+    def __init__(self, d, max_delta_days, load_from_pickle=0):
         """
             Calculates the nights at paranal for a certain start date ''d'' and end date, reached after ''Max_Delta_days''.
             Retrieves the sun coordinates for each night from astroplan to determine the night times.
@@ -231,52 +218,51 @@ class Nights(object):
                 If ''LoadFromPickle'' = 1, checks if Night data for given time span is available.
         """
         dt = datetime.timedelta(days=1)
-        d_end = d + dt * Max_Delta_days
-        self.Max_Delta_days = Max_Delta_days
-        if LoadFromPickle == 1:
+        d_end = d + dt * max_delta_days
+        self.max_delta_days = max_delta_days
+        if load_from_pickle == 1:
             """ Check if there exist pkl files with night data for the preferred range, if not: initializes empty lists for Nights instance """
             try:
                 d_str = (
                     d.isoformat()
                 )  # start date from which the nights in paranal are calculated
                 filename = "Nights_paranal_{}_{}d.pkl".format(
-                    d_str, self.Max_Delta_days
+                    d_str, self.max_delta_days
                 )
                 nights = fun.pickled_items(filename)
                 self.start = nights.__next__()
                 self.end = nights.__next__()
-                self.Max_Delta_days = nights.__next__()
+                self.max_delta_days = nights.__next__()
                 self.date = nights.__next__()
                 self.night = nights.__next__()
                 self.loaded = 1
             except Exception as e:
-                print(e)
+                logger.error(e)
                 self.loaded = 0
                 d_str = (
                     d.isoformat()
                 )  # start date from which the nights in paranal are calculated
                 filename = "Nights_paranal_{}_{}d.pkl".format(
-                    d_str, self.Max_Delta_days
+                    d_str, self.max_delta_days
                 )
-                print(
+                logger.warning(
                     "No Night data found for {}, computing nights...".format(filename)
                 )
 
         self.start = d
         self.end = d_end
-        self.Max_Delta_days = (d_end - d).days
+        self.max_delta_days = (d_end - d).days
         # self.date = []
         # self.night = []
         self.loaded = 0
 
         # list with datetime objects for the midnights in question
-        self.date = [self.start + dt * k for k in range(self.Max_Delta_days)]
+        self.date = [self.start + dt * k for k in range(self.max_delta_days)]
 
     ##########################################################################################################
 
-    @help_fun_logger
-    def Calculate_nights_paranal(
-        self, delta_midnight, observatory=paranal, WriteToPickle=0
+    def calculate_nights_paranal(
+        self, delta_midnight, observatory=paranal, write_to_pickle=0
     ):
         """
             Calculates the nights at ''observatory'', default=paranal for a certain start date and end date. Retrieves the sun coordinates
@@ -309,13 +295,13 @@ class Nights(object):
 
         if self.loaded == 1:
             """ If the nights at paranal with startdate d could be loaded from file, yield: """
-            print(
+            logger.info(
                 "Nights loaded from file, continueing with processing planets for observability"
             )
         else:
 
             """ All times are in UTC respectively """
-            print(
+            logger.info(
                 "Calculating the nights of paranal from the {} until the {}".format(
                     self.start, self.end
                 )
@@ -345,14 +331,14 @@ class Nights(object):
                         night.append(str(sunaltazs_24_h[n].obstime.value))
                 self.night.append(Time(night))
 
-            if WriteToPickle == 1:
+            if write_to_pickle == 1:
                 """Write Nights_paranal_table to file"""
 
                 d = self.start
                 d = (
                     d.isoformat()
                 )  # start date from which the nights in paranal are calculated
-                filename = "Nights_paranal_{}_{}d.pkl".format(d, self.Max_Delta_days)
+                filename = "Nights_paranal_{}_{}d.pkl".format(d, self.max_delta_days)
                 fun.pickle_dumper_objects(filename, self)
 
 
@@ -413,42 +399,35 @@ class Eclipses:
 
     """
 
-    @help_fun_logger
-    def __init__(self, Max_Delta_days, planet=None):
-        try:
-            if planet == None:
-                empty_class = True
-            else:
-                empty_class = False
+    def __init__(self, max_delta_days, planet=None):
+        #:str: Name of the Planet
+        self.name = None
+        #:Time: Time of the middle of a Transit
+        self.epoch = None
+        #:Quantity: Orbital Period
+        self.period = None
+        #:float: Uncertainty of the orbital period
+        self.period_err = None
+        #:Quantity: Duration of the transit
+        self.transit_duration = None
+        #:float: Eccentricity of the planet orbit
+        self.eccentricity = None
+        #:Quantity: Effective temperature of the host star
+        self.star_teff = None
+        #:Quantity: J band magnitude of the host star
+        self.star_jmag = None
+        #:EclipsingSystem: astroplan representation of the planet system
+        self.planets_eclipse = None
+        #:SkyCoord: Sky Coordinates of the host star system
+        self.coordinates = None
+        #:int: number of eclipses occurring during max_delta_days
+        self.num_eclipses = None
+        #:list: targets that are observable during max_delta_days 
+        self.target_observable = []
+        #:list: eclipses that are observable during max_delta_days
+        self.eclipse_observable = []
 
-        except Exception:
-
-            if planet.all() == None:
-                empty_class = True
-            else:
-                empty_class = False
-
-        if empty_class:
-
-            """ Create Empty class to load data from file """
-
-            self.name = None
-            self.epoch = None
-            self.period = None
-            self.period_err = None
-            self.transit_duration = None
-            self.eccentricity = None
-            self.star_Teff = None
-            self.star_jmag = None
-            # self.pl_mass = None
-            self.Planets_eclipse = None
-            self.num_eclipses = None
-
-            self.target_observable = []
-            self.eclipse_observable = []
-
-        else:
-
+        if planet is not None:
             """ Initialize Eclipse instance from Nasa query_planet object """
 
             self.name = planet["pl_name"]
@@ -460,62 +439,31 @@ class Eclipses:
             )
             self.period = planet["pl_orbper"] * u.day
             self.period_err = planet["pl_orbpererr1"]
-            self.transit_duration = (
-                planet["pl_trandur"] * u.hour
-            )  # CAREFUL in nexa_old the pl_trandur is given in u.day
+            # CAREFUL in nexa_old the pl_trandur is given in u.day
+            self.transit_duration = planet["pl_trandur"] * u.hour
             self.eccentricity = planet["pl_orbeccen"]
-            self.star_Teff = planet["st_teff"]
-            self.star_jmag = planet["sy_jmag"]
-            # self.pl_mass = planet['pl_bmassj']
+            self.star_teff = planet["st_teff"] * u.K
+            self.star_jmag = planet["sy_jmag"] * u.mag
 
-            self.target_observable = []
-            self.eclipse_observable = []
-
-            """
-                Planet_next_eclipse : Class object with which the future transits of the planet can be calculated.
-                                      For documentation review astroplan.EclipsingSystem documentation.
-    
-                WARNING:
-                There are currently two major caveats in the implementation of
-                ''EclipsingSystem''. The secondary eclipse time approximation is
-                only accurate when the orbital eccentricity is small, and the eclipse
-                times are computed without any barycentric corrections. The current
-                implementation should only be used forapproximate mid-eclipse times for
-                low eccentricity orbits, with event durations longer than the
-                barycentric correction error (<=16 minutes). 
-                
-                This is corrected for with the barycentric correction, which can be found in the classmethod Observability
-    
-                From EclipsingSystem.__doc__
-    
-            """
-
-            Planet_next_eclipse = astroplan.EclipsingSystem(
+            # time in barycentric frame
+            self.planets_eclipse = astroplan.EclipsingSystem(
                 primary_eclipse_time=self.epoch,
                 orbital_period=self.period,
                 duration=self.transit_duration,
             )
-
-            self.Planets_eclipse = Planet_next_eclipse  # time in barycentric frame
-
-            # number of eclipses occurring during Max_Delta_days.
-
-            self.num_eclipses = int(np.floor(Max_Delta_days / (self.period / u.day)))
+            
+            self.num_eclipses = int(np.floor(max_delta_days / (self.period / u.day)))
 
             """ coordinates of the object in IRCS """
-            try:
-                self.Coordinates = FixedTarget.from_name(self.name)
-            except Exception:
-                sky_coord = SkyCoord(ra=planet["ra"] * u.deg, dec=planet["dec"] * u.deg)
-                self.Coordinates = FixedTarget(name=self.name, coord=sky_coord)
+            sky_coord = SkyCoord(ra=planet["ra"], dec=planet["dec"], unit=u.deg)
+            self.coordinates = FixedTarget(name=self.name, coord=sky_coord)
 
     ##########################################################################################################
 
-    @help_fun_logger
-    def Observability(
+    def observability(
         self,
         obs_time,
-        Nights,
+        nights,
         constraints,
         check_eclipse,
         check_target=False,
@@ -547,16 +495,15 @@ class Eclipses:
 
         """
 
-        print(self.name + " is getting processed")
+        logger.info(f"{self.name} is getting processed")
         result_eclipse, result_target = [], []
 
-        eclipse_times = self.Planets_eclipse.next_primary_eclipse_time(
+        eclipse_times = self.planets_eclipse.next_primary_eclipse_time(
             obs_time, n_eclipses=self.num_eclipses
         )
         eclipse_times.location = paranal.location
-        ltt_bary = eclipse_times.light_travel_time(self.Coordinates.coord)
+        ltt_bary = eclipse_times.light_travel_time(self.coordinates.coord)
         eclipse_times -= ltt_bary
-
         n = np.arange(len(eclipse_times))
 
         if check_eclipse:
@@ -570,66 +517,73 @@ class Eclipses:
             )
             # Needs to be reshaped to (N, 2) shape
             eclipse_night = eclipse_night.reshape((3, -1)).T
-            eclipse_obs = astroplan.is_event_observable(
+            is_observable = astroplan.is_event_observable(
                 constraints=constraints,
                 observer=paranal,
-                target=self.Coordinates,
+                target=self.coordinates,
                 times_ingress_egress=eclipse_night[:, (0, 2)],
             )
-            eclipse_obs = eclipse_obs[0]
-            for i in np.where(eclipse_obs)[0]:
-                print(f"{self.name} total Eclipse is observable")
-                eclipse_triplet = eclipse_night[i]
-                moon_sep, moon_phase, airmass, altazs = fun.airmass_moon_sep_obj_altaz(
-                    self, eclipse_triplet
-                )
+            is_observable = is_observable[0]
 
-                eclipse_dict = {
+            if np.any(is_observable):
+                eclipse_night = eclipse_night[is_observable]
+                eclipse_error = eclipse_error[is_observable]
+
+                moon_sep, moon_phase, airmass, altazs = fun.airmass_moon_sep_obj_altaz(
+                        self, eclipse_night
+                    )
+
+                for i in range(len(eclipse_night)):
+                    eclipse_triplet = eclipse_night[i]
+
+                    eclipse_dict = {
                         "name": self.name,
-                        "obs_time": eclipse_times[i],
+                        "obs_time": eclipse_triplet[2],
                         "obs_time_error": eclipse_error[i],
                         "is_primary_eclipse_observable": True,
                         "transit_duration": self.transit_duration,
-                        "stellar_effective_temperature": self.star_Teff,
+                        "stellar_effective_temperature": self.star_teff,
                         "magnitude_j": self.star_jmag,
                     }
-                eclipse_dict.update({
-                    f"eclipse_{step}": {
-                        "time": eclipse_triplet[j],
-                        "airmass": airmass[j],
-                        "moon sep": moon_sep[0][j],
-                        "moon phase": moon_phase[j],
-                        "az": altazs[j].az,
-                        "alt": altazs[j].alt,
-                    }
-                    for j, step in enumerate(("begin", "mid", "end"))
-                })
-                result_eclipse += [eclipse_dict]
+                    eclipse_dict.update(
+                        {
+                            f"eclipse_{step}": {
+                                "time": eclipse_triplet[j],
+                                "airmass": airmass[i][j],
+                                "moon sep": moon_sep[0][i][j],
+                                "moon phase": moon_phase[i][j],
+                                "az": altazs[i][j].az,
+                                "alt": altazs[i][j].alt,
+                            }
+                            for j, step in enumerate(("begin", "mid", "end"))
+                        }
+                    )
+                    result_eclipse += [eclipse_dict]
         if check_target:
             """ Check if Nights object has attribute nights to calculate observability of target """
-            if hasattr(Nights, "night"):
-                k = list.index(Nights.date, eclipse_times)
-                night = Nights.night[k]
+            if hasattr(nights, "night"):
+                k = list.index(nights.date, eclipse_times)
+                night = nights.night[k]
             else:
-                Nights.Calculate_nights_paranal(delta_midnight)
-                night = Nights.night[0]
+                nights.Calculate_nights_paranal(delta_midnight)
+                night = nights.night[0]
             """ Check if target observable independent of Transit, can not be turned on through menu yet. """
             tar_obs = astroplan.is_event_observable(
                 constraints=constraints,
                 observer=paranal,
-                target=self.Coordinates,
+                target=self.coordinates,
                 times=night,
             )
             tar_obs = tar_obs[0].reshape((3, -1)).T
             tar_obs = np.all(tar_obs, axis=1)
-            print("{self.name} Target is observable without any primary eclipse")
+            logger.info("{self.name} target is observable without any primary eclipse")
             for i in np.where(tar_obs)[0]:
                 moon_sep, moon_phase, airmass, altazs = fun.airmass_moon_sep_obj_altaz(
                     self, night[i]
                 )
                 result_target += {
                     "Name": self.name,
-                    "Effective Temperature": self.star_Teff,
+                    "Effective Temperature": self.star_teff,
                     "J-magnitude": self.star_jmag,
                     "Object w. o. primary eclipse observable?": True,
                     "Obs Data": {
@@ -651,8 +605,7 @@ class Eclipses:
 ##########################################################################################################
 
 
-@help_fun_logger
-def load_Eclipses_from_file(filename, Max_Delta_days):
+def load_eclipses_from_file(filename, max_delta_days):
     """
         Loads Eclipses class objects from pickled file with ''filename''.
 
@@ -670,36 +623,35 @@ def load_Eclipses_from_file(filename, Max_Delta_days):
             Contains all Eclipses class objects that have been loaded from the file.
 
     """
-    Eclipses_List = []
+    eclipses_list = []
 
     def att_identifier(att):
         if type(att) == int:
-            Planet.num_eclipses = att
+            planet.num_eclipses = att
         elif type(att) == FixedTarget:
-            Planet.Coordinates = att
+            planet.coordinates = att
         elif type(att) == astroplan.periodic.EclipsingSystem:
-            Planet.Planets_eclipse = att
+            planet.planets_eclipse = att
         else:
             return att
 
     planet = fun.pickled_items(filename)
     att = None
     while True:
-        Planet = Eclipses(Max_Delta_days)
+        planet = Eclipses(max_delta_days)
         try:
             if att != None:
-                print(att)
-                Planet.name = att
+                planet.name = att
             else:
-                Planet.name = next(planet)
+                planet.name = next(planet)
 
-            Planet.epoch = next(planet)
-            Planet.period = next(planet)
-            Planet.period_err = next(planet)
-            Planet.transit_duration = next(planet)
-            Planet.eccentricity = next(planet)
-            Planet.star_Teff = next(planet)
-            Planet.star_jmag = next(planet)
+            planet.epoch = next(planet)
+            planet.period = next(planet)
+            planet.period_err = next(planet)
+            planet.transit_duration = next(planet)
+            planet.eccentricity = next(planet)
+            planet.star_teff = next(planet)
+            planet.star_jmag = next(planet)
             # Planet.pl_mass = next(planet)
             att = None
             while att == None:
@@ -715,18 +667,17 @@ def load_Eclipses_from_file(filename, Max_Delta_days):
                 att = next(planet)
                 att = att_identifier(att)
 
-            Planet.eclipse_observable.extend(eclipse_observable)
-            Planet.target_observable.extend(target_observable)
-            Eclipses_List.append(Planet)
+            planet.eclipse_observable.extend(eclipse_observable)
+            planet.target_observable.extend(target_observable)
+            eclipses_list.append(planet)
         except StopIteration:
-            print("Eclipses_List has been loaded from {}".format(filename))
-            logging.info("Eclipses_List has bin loaded from {}".format(filename))
-            Planet.eclipse_observable.extend(eclipse_observable)
-            Planet.target_observable.extend(target_observable)
-            Eclipses_List.append(Planet)
+            logger.info("Eclipses_List has bin loaded from {}".format(filename))
+            planet.eclipse_observable.extend(eclipse_observable)
+            planet.target_observable.extend(target_observable)
+            eclipses_list.append(planet)
             break
 
-    return Eclipses_List
+    return eclipses_list
 
 
 ##########################################################################################################
@@ -767,23 +718,22 @@ class Targets:
 
     """
 
-    @help_fun_logger
-    def __init__(self, name, star_Teff, star_jmag, Coordinates=None):
+    def __init__(self, name, star_teff, star_jmag, coordinates=None):
         """ Initialize Eclipse instance from Nasa query_planet object """
         self.name = name
-        self.star_Teff = star_Teff
+        self.star_teff = star_teff
         self.star_jmag = star_jmag
 
         self.target_observable = []
 
         try:
-            self.Coordinates = FixedTarget.from_name(self.name)
+            self.coordinates = FixedTarget.from_name(self.name)
         except Exception:
-            self.Coordinates = FixedTarget(Coordinates, name=self.name)
+            self.coordinates = FixedTarget(coordinates, name=self.name)
 
     ##########################################################################################################
 
-    def target_observable(self, Nights, constraints, delta_midnight=None):
+    def target_observable(self, nights, constraints, delta_midnight=None):
         """
             Calculates for which times during the time span of Nights, the target is observable under the given constraints.
             LATER : Could include plotting of target observability.
@@ -802,25 +752,25 @@ class Targets:
             # defines number of timesteps per 24 hours
             delta_midnight = np.linspace(-12, 12, 1000) * u.hour
 
-        print(self.name + " is getting processed")
-        for date in Nights.date:
+        logger.info(self.name + " is getting processed")
+        for date in nights.date:
             """ Check if Nights object has attribute nights to calculate observability of target """
-            if hasattr(Nights, "night"):
-                k = list.index(Nights.date, date)
-                night = Nights.night[k]
+            if hasattr(nights, "night"):
+                k = list.index(nights.date, date)
+                night = nights.night[k]
             else:
-                Nights.Calculate_nights_paranal(delta_midnight)
-                night = Nights.night[k]
+                nights.Calculate_nights_paranal(delta_midnight)
+                night = nights.night[k]
 
             """ Check if target observable """
             tar_obs = astroplan.is_event_observable(
                 constraints=constraints,
                 observer=paranal,
-                target=self.Coordinates,
+                target=self.coordinates,
                 times=night,
             )
             if any(tar_obs[0] == True):
-                print(
+                logger.info(
                     "{} Target is observable without any primary eclipse".format(
                         self.name
                     )
@@ -836,7 +786,7 @@ class Targets:
                         self.target_observable.append(
                             {
                                 "Name": self.name,
-                                "Effective Temperature": self.star_Teff,
+                                "Effective Temperature": self.star_teff,
                                 "J-magnitude": self.star_jmag,
                                 "Object observable?": tar,
                                 "Obs Data": {

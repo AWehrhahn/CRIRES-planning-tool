@@ -4,7 +4,7 @@ import datetime
 from classes_methods.classes import Nights
 import sys
 from datetimerange import DateTimeRange
-from classes_methods.classes import load_Eclipses_from_file
+from classes_methods.classes import load_eclipses_from_file
 
 filename = input('pls give me a filename:')
 
@@ -14,7 +14,7 @@ d = datetime.datetime.fromisoformat(filename.split('_')[3])
 Max_Delta_days = int(filename.split('_')[4][:-5])
 Nights = Nights(d, Max_Delta_days)
 
-Eclipses_List = load_Eclipses_from_file(filename, Max_Delta_days)
+Eclipses_List = load_eclipses_from_file(filename, Max_Delta_days)
 ranking, df_gen, df_frame = data_sorting_and_storing(
     Eclipses_List, write_to_csv=0)
 

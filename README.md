@@ -393,9 +393,6 @@ class Exoplanets:
             Exoplanets_List_Nasa : contains all planets found in the Nasa Exoplanet Archive 
             with names from a name-list.
 
-            Exoplanet_not_Nasa : contains all the names for which no data was found in Nasa 
-            Exoplanet Archive
-
             Transit_data_missing : contains all the planet names for which not all the 
             necessary datas and infos about the planet were available.
 

@@ -336,7 +336,7 @@ def airmass_moon_sep_obj_altaz(obs_obj, obs_time, location=paranal.location):
     if isinstance(obs_obj, FixedTarget):
         obs_coor = obs_obj.coord
     else:
-        obs_coor = obs_obj.Coordinates.coord
+        obs_coor = obs_obj.coordinates.coord
     frame_obs = AltAz(obstime=obs_time, location=location)
     obs_altazs = obs_coor.transform_to(frame_obs)
     airmass = obs_altazs.secz
@@ -394,7 +394,6 @@ def pickle_dumper_objects(filename, Objects):
 ##########################################################################################################
 
 
-@help_fun_logger
 def SN_Transit_Observation_Optimization(eclipse, planet, snr=100):
     """
         Calculates exactly how many exposures are possible to take during a single transit and adds the data
@@ -515,7 +514,7 @@ def SN_Transit_Observation_Optimization(eclipse, planet, snr=100):
 ##########################################################################################################
 
 
-def SN_estimate_num_of_exp(eclipse, planet, snr=100):
+def snr_estimate_nexposures(eclipse, planet, snr=100):
     """
         Calculates the exposure time to reach 16 < NDIT < 32 for Transit mid, begin and end
         and from the maximum exposure time estimates the number of possible exposure during the whole transit.
