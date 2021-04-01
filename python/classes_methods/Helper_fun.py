@@ -333,7 +333,7 @@ def airmass_moon_sep_obj_altaz(obs_obj, obs_time, location=paranal.location):
             Azimuth and Altitude in deg at which the object can be observed at the chosen time and location.
 
     """
-    if type(obs_obj) == FixedTarget:
+    if isinstance(obs_obj, FixedTarget):
         obs_coor = obs_obj.coord
     else:
         obs_coor = obs_obj.Coordinates.coord
@@ -342,10 +342,9 @@ def airmass_moon_sep_obj_altaz(obs_obj, obs_time, location=paranal.location):
     airmass = obs_altazs.secz
     moon = get_moon(obs_time).transform_to(frame_obs)
     sun = get_sun(obs_time).transform_to(frame_obs)
-    moon_target_sep = moon.separation(
-        obs_altazs
-    )  # calculates the moon target separation
-    moon_target_sep = moon_target_sep.deg * u.deg
+    # calculates the moon target separation
+    moon_target_sep = moon.separation(obs_altazs)  
+    # moon_target_sep = moon_target_sep.deg * u.deg
     moon_phase = sun.separation(moon)
     # moon_phase = moon_phase_angle(time=obs_time)
     # moon_phase = moon_phase.to(u.deg)
@@ -353,18 +352,10 @@ def airmass_moon_sep_obj_altaz(obs_obj, obs_time, location=paranal.location):
     zmoon = 90 * u.deg - moon.alt
     sep_min = np.abs(z - zmoon)
     sep_max = np.abs(z + zmoon)
-    if moon_target_sep > sep_max:
-        moon_target_sep = sep_max
-    elif moon_target_sep < sep_min:
-        moon_target_sep = sep_min
+    moon_target_sep = np.clip(moon_target_sep, sep_min, sep_max)
+    moon_target_sep = (moon_target_sep, moon.alt)
 
-    moon_target_sep = moon_target_sep.value
-    moon_phase = moon_phase.value
-    airmass = airmass.value
-    moon_alt = moon.alt.value
-    moon_tar_sep = (moon_target_sep, moon_alt)
-
-    return moon_tar_sep, moon_phase, airmass, obs_altazs
+    return moon_target_sep, moon_phase, airmass, obs_altazs
 
 
 ##########################################################################################################

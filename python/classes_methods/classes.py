@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from tqdm import tqdm
+
 # from astroplan import EclipsingSystem
 # import astropy.coordinates
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_moon
@@ -101,11 +102,11 @@ class Exoplanets:
         filenames = {
             "nexa_new": join(path, "PlanetList.csv"),
             "nexa_old": join(path, "PlanetList_old.csv"),
-            "custom": join(path, "PlanetList_edit.csv")
+            "custom": join(path, "PlanetList_edit.csv"),
         }
         filename = filenames[catalog]
         candidate_list = pd.read_csv(filename)
-        
+
         self.exoplanet_list = candidate_list
         self.exoplanets_list_nasa = [p for _, p in candidate_list.iterrows()]
         self.exoplanet_not_nasa = []
@@ -206,7 +207,6 @@ class Exoplanets:
                     # print(
                     #     f"Planet {planet['pl_name']} added to Transit_data_avail"
                     # )
-                    
 
 
 ##########################################################################################################
@@ -518,7 +518,7 @@ class Eclipses:
         Nights,
         constraints,
         check_eclipse,
-        check_target=0,
+        check_target=False,
         delta_midnight=None,
     ):
         """
@@ -536,183 +536,116 @@ class Eclipses:
             constraints : class astroplan.Constraint
                 Constraints under which the observational events should get constrained.
 
-            check_eclipse : int
+            check_eclipse : bool
                 If ''check_eclipse'' =  1, checks if transits/eclipses are observable.
 
-            check_target : int, optional
+            check_target : bool, optional
                 If ''check_target'' = 1, checks if target is observable during the given nights. The default is 0.
 
-            delta_midnight : numpy.linspace, obtional
+            delta_midnight : numpy.linspace, optional
                 array containing a grid of timesteps for which the nights datetimes should get computed. Default is None
 
         """
 
-        Planet_next_eclipse_Times = self.Planets_eclipse.next_primary_eclipse_time(
+        print(self.name + " is getting processed")
+        result_eclipse, result_target = [], []
+
+        eclipse_times = self.Planets_eclipse.next_primary_eclipse_time(
             obs_time, n_eclipses=self.num_eclipses
         )
-        print(self.name + " is getting processed")
-        # n_max = np.ceil(1/self.period_err)
-        def func(date):
-            result, result_target = [], []
-            if check_target == 1:
-                """ Check if Nights object has attribute nights to calculate observability of target """
-                if hasattr(Nights, "night"):
-                    k = list.index(Nights.date, date)
-                    night = Nights.night[k]
-                else:
-                    Nights.Calculate_nights_paranal(delta_midnight)
-                    night = Nights.night[0]
+        eclipse_times.location = paranal.location
+        ltt_bary = eclipse_times.light_travel_time(self.Coordinates.coord)
+        eclipse_times -= ltt_bary
 
-            for n, planet_next_eclipse_by_date in enumerate(Planet_next_eclipse_Times):
-                """ Loop over all eclipses coming up in the given timespan of object planet """
+        n = np.arange(len(eclipse_times))
 
-                """ 
-                    Barycentric light travel time correction, since mid transit times are in barycentric frame. 
-                    Need to transform time to geocentric frame: 
-                """
-                planet_next_eclipse_by_date.location = paranal.location
-                ltt_bary = planet_next_eclipse_by_date.light_travel_time(
-                    self.Coordinates.coord
+        if check_eclipse:
+            eclipse_begin = eclipse_times - self.transit_duration / 2
+            eclipse_end = eclipse_times + self.transit_duration / 2
+            eclipse_error = (n + 1) * self.period_err
+
+            # Beginning and end of transit
+            eclipse_night = Time(
+                np.concatenate([eclipse_begin, eclipse_times, eclipse_end])
+            )
+            # Needs to be reshaped to (N, 2) shape
+            eclipse_night = eclipse_night.reshape((3, -1)).T
+            eclipse_obs = astroplan.is_event_observable(
+                constraints=constraints,
+                observer=paranal,
+                target=self.Coordinates,
+                times_ingress_egress=eclipse_night[:, (0, 2)],
+            )
+            eclipse_obs = eclipse_obs[0]
+            for i in np.where(eclipse_obs)[0]:
+                print(f"{self.name} total Eclipse is observable")
+                eclipse_triplet = eclipse_night[i]
+                moon_sep, moon_phase, airmass, altazs = fun.airmass_moon_sep_obj_altaz(
+                    self, eclipse_triplet
                 )
-                planet_next_eclipse_by_date = (
-                    planet_next_eclipse_by_date - ltt_bary
-                )  # barycentric correction,
-                # the minus comes from that we transform from the barycentric into the geocentric frame.
 
-                # Check which eclipse can be observed in which night
-                if date == planet_next_eclipse_by_date.datetime.date():
+                eclipse_dict = {
+                        "name": self.name,
+                        "obs_time": eclipse_times[i],
+                        "obs_time_error": eclipse_error[i],
+                        "is_primary_eclipse_observable": True,
+                        "transit_duration": self.transit_duration,
+                        "stellar_effective_temperature": self.star_Teff,
+                        "magnitude_j": self.star_jmag,
+                    }
+                eclipse_dict.update({
+                    f"eclipse_{step}": {
+                        "time": eclipse_triplet[j],
+                        "airmass": airmass[j],
+                        "moon sep": moon_sep[0][j],
+                        "moon phase": moon_phase[j],
+                        "az": altazs[j].az,
+                        "alt": altazs[j].alt,
+                    }
+                    for j, step in enumerate(("begin", "mid", "end"))
+                })
+                result_eclipse += [eclipse_dict]
+        if check_target:
+            """ Check if Nights object has attribute nights to calculate observability of target """
+            if hasattr(Nights, "night"):
+                k = list.index(Nights.date, eclipse_times)
+                night = Nights.night[k]
+            else:
+                Nights.Calculate_nights_paranal(delta_midnight)
+                night = Nights.night[0]
+            """ Check if target observable independent of Transit, can not be turned on through menu yet. """
+            tar_obs = astroplan.is_event_observable(
+                constraints=constraints,
+                observer=paranal,
+                target=self.Coordinates,
+                times=night,
+            )
+            tar_obs = tar_obs[0].reshape((3, -1)).T
+            tar_obs = np.all(tar_obs, axis=1)
+            print("{self.name} Target is observable without any primary eclipse")
+            for i in np.where(tar_obs)[0]:
+                moon_sep, moon_phase, airmass, altazs = fun.airmass_moon_sep_obj_altaz(
+                    self, night[i]
+                )
+                result_target += {
+                    "Name": self.name,
+                    "Effective Temperature": self.star_Teff,
+                    "J-magnitude": self.star_jmag,
+                    "Object w. o. primary eclipse observable?": True,
+                    "Obs Data": {
+                        "time": night[i],
+                        "airmass": airmass,
+                        "moon sep": moon_sep[0],
+                        "moon phase": moon_phase,
+                        "az": altazs.az,
+                        "alt": altazs.alt,
+                    },
+                }
 
-                    if check_eclipse == 1:
+        self.eclipse_observable = result_eclipse
+        self.target_observable = result_target
 
-                        Planet_next_eclipse_per_night_MID = planet_next_eclipse_by_date
-                        Planet_next_eclipse_per_night_BEGIN = (
-                            Planet_next_eclipse_per_night_MID
-                            - self.transit_duration / 2
-                        )
-                        Planet_next_eclipse_per_night_END = (
-                            Planet_next_eclipse_per_night_MID
-                            + self.transit_duration / 2
-                        )
-
-                        Planet_Eclipse_ERROR = (n + 1) * self.period_err
-                        Planet_Eclipes_NIGHT = [
-                            Planet_next_eclipse_per_night_BEGIN,
-                            Planet_next_eclipse_per_night_MID,
-                            Planet_next_eclipse_per_night_END,
-                        ]  # Begin, midpoint and end of transit
-
-                        """ Computes observability of the Transit """
-                        ecl_obs = astroplan.is_event_observable(
-                            constraints=constraints,
-                            observer=paranal,
-                            target=self.Coordinates,
-                            times=Planet_Eclipes_NIGHT,
-                        )
-
-                        if all(ecl_obs[0] == True):
-                            print("{} total Eclipse is observable".format(self.name))
-                            airmass_moon_sep_obj_altaz_RESULT = [
-                                fun.airmass_moon_sep_obj_altaz(self, tim)
-                                for tim in Planet_Eclipes_NIGHT
-                            ]
-                            moon_target_sep = [
-                                out[0] for out in airmass_moon_sep_obj_altaz_RESULT
-                            ]
-                            moon_phase = [
-                                out[1] for out in airmass_moon_sep_obj_altaz_RESULT
-                            ]
-                            airmass = [
-                                out[2] for out in airmass_moon_sep_obj_altaz_RESULT
-                            ]
-                            obs_altazs = [
-                                out[3] for out in airmass_moon_sep_obj_altaz_RESULT
-                            ]
-                            # print(moon_target_sep, moon_phase, airmass, obs_altazs)
-                            result.append(
-                                {
-                                    "Name": self.name,
-                                    "obs time": Planet_next_eclipse_per_night_MID,
-                                    "obs time error": Planet_Eclipse_ERROR,
-                                    "Primary eclipse observable?": ecl_obs[0][0],
-                                    "Transit Length": self.transit_duration.to(u.hour),
-                                    "Effective Temperature": self.star_Teff,
-                                    "J-magnitude": self.star_jmag,
-                                    "Eclipse Begin": {
-                                        "time": Planet_next_eclipse_per_night_BEGIN,
-                                        "airmass": airmass[0],
-                                        "moon sep": moon_target_sep[0][0],
-                                        "moon phase": moon_phase[0],
-                                        "az": obs_altazs[0].az,
-                                        "alt": obs_altazs[0].alt,
-                                    },
-                                    "Eclipse Mid": {
-                                        "time": Planet_next_eclipse_per_night_MID,
-                                        "airmass": airmass[1],
-                                        "moon sep": moon_target_sep[1][0],
-                                        "moon phase": moon_phase[1],
-                                        "az": obs_altazs[1].az,
-                                        "alt": obs_altazs[1].alt,
-                                    },
-                                    "Eclipse End": {
-                                        "time": Planet_next_eclipse_per_night_END,
-                                        "airmass": airmass[2],
-                                        "moon sep": moon_target_sep[2][0],
-                                        "moon phase": moon_phase[2],
-                                        "az": obs_altazs[2].az,
-                                        "alt": obs_altazs[2].alt,
-                                    },
-                                }
-                            )
-
-                    if check_target == 1:
-                        """ Check if target observable independent of Transit, can not be turned on through menu yet. """
-                        tar_obs = astroplan.is_event_observable(
-                            constraints=constraints,
-                            observer=paranal,
-                            target=self.Coordinates,
-                            times=night,
-                        )
-                        if any(tar_obs[0] == True):
-                            print(
-                                "{} Target is observable without any primary eclipse".format(
-                                    self.name
-                                )
-                            )
-                            for n, tar in enumerate(tar_obs[0]):
-                                if tar == True:
-                                    (
-                                        moon_target_sep,
-                                        moon_phase,
-                                        airmass,
-                                        obs_altazs,
-                                    ) = fun.airmass_moon_sep_obj_altaz(self, night[n])
-                                    result_target.append(
-                                        {
-                                            "Name": self.name,
-                                            "Effective Temperature": self.star_Teff,
-                                            "J-magnitude": self.star_jmag,
-                                            "Object w. o. primary eclipse observable?": tar,
-                                            "Obs Data": {
-                                                "time": night[n],
-                                                "airmass": airmass,
-                                                "moon sep": moon_target_sep[0],
-                                                "moon phase": moon_phase,
-                                                "az": obs_altazs.az,
-                                                "alt": obs_altazs.alt,
-                                            },
-                                        }
-                                    )
-            return result, result_target
-
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(func, date) for date in Nights.date]
-
-            for future in tqdm(as_completed(futures), total=len(futures)):
-                result = future.result()
-                self.eclipse_observable += result[0]
-                self.target_observable += result[1]
         return self.eclipse_observable, self.target_observable
-
 
 
 ##########################################################################################################
