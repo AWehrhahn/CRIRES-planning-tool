@@ -8,53 +8,27 @@ Classes for Transit_List observability
 @author: jonaszbinden
 """
 
-import math as m
-from os.path import dirname, join
+import datetime
 import logging
+import pickle
+from os.path import dirname, join
 
 import astroplan
 import astropy
 import astropy.units as u
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-# from concurrent.futures import ThreadPoolExecutor, as_completed, wait
+from astroplan import FixedTarget, Observer
+from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_sun
+from astropy.time import Time
+from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
 from tqdm import tqdm
 
-# from astroplan import EclipsingSystem
-# import astropy.coordinates
-from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_moon
-
-# from astropy import table
-from astropy.time import Time
-from astropy.visualization import astropy_mpl_style, quantity_support
-
-plt.style.use(astropy_mpl_style)
-quantity_support()
-# from astroquery.exoplanet_orbit_database import ExoplanetOrbitDatabase
-# import astroquery.open_exoplanet_catalogue as oec
-import datetime
-import logging
-import pickle
-import time
-
-import pandas as pd
-from astroplan import FixedTarget, Observer, download_IERS_A, get_IERS_A_or_workaround
-from astropy.coordinates import get_sun
-from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
-
 import classes_methods.Helper_fun as fun
-from classes_methods import csv_file_import
-from classes_methods.Helper_fun import help_fun_logger
-
-# from threading import Thread
-
 
 """ Location and UTC offset Paranal """
 paranal = Observer.at_site("paranal", timezone="Chile/Continental")
-
 logger = logging.getLogger(__name__)
-##########################################################################################################
 
 
 class Exoplanets:
@@ -62,7 +36,6 @@ class Exoplanets:
         Stores list of available planets for processing. The list of candidates gets requested with the file
     """
 
-    @help_fun_logger
     def __init__(self):
         """
             Initialize lists to sort the planets retrieved from Nasa Exoplanet Archive according
@@ -121,7 +94,6 @@ class Exoplanets:
 
     ##########################################################################################################
 
-    @help_fun_logger
     def filter_data(self):
         """
         Checks if the planet tables have all the necessary data for later processing.
@@ -138,10 +110,14 @@ class Exoplanets:
                 flag = None
                 logger.info(f"Checking Planet {planet['pl_name']} for Transit Data")
                 if np.ma.is_masked(planet["pl_tranmid"][0]) is True:
-                    logger.warning(f"Planet {planet['pl_name'][0]} has no data about transit mid")
+                    logger.warning(
+                        f"Planet {planet['pl_name'][0]} has no data about transit mid"
+                    )
                     flag = True
                 if np.ma.is_masked(planet["pl_orbper"][0]) is True:
-                    logger.warning(f"Planet {planet['pl_name'][0]} has no data about orbit period")
+                    logger.warning(
+                        f"Planet {planet['pl_name'][0]} has no data about orbit period"
+                    )
                     flag = True
                 if np.ma.is_masked(planet["pl_trandur"][0]) is True:
                     logger.warning(
@@ -169,7 +145,9 @@ class Exoplanets:
                 except Exception:
                     try:
                         sky_coords = planet["sky_coord"][0]
-                        logger.warning("No Sky coordinates found for " + planet["pl_name"][0])
+                        logger.warning(
+                            "No Sky coordinates found for " + planet["pl_name"][0]
+                        )
                     except:
                         flag = True
                 if not sky_coords:
@@ -182,7 +160,9 @@ class Exoplanets:
                     )
                 else:
                     self.data_missing.append(planet["pl_name"])
-                    logger.info("Planet " + planet["pl_name"] + " added to data_missing\n")
+                    logger.info(
+                        "Planet " + planet["pl_name"] + " added to data_missing\n"
+                    )
 
         elif self.catalog == "nexa_new":
             select = (
@@ -195,9 +175,6 @@ class Exoplanets:
             self.data_missing = self.data[select]
             self.data_complete = self.data[~select]
         return self.data_complete
-
-
-##########################################################################################################
 
 
 class Nights(object):
@@ -342,9 +319,6 @@ class Nights(object):
                 fun.pickle_dumper_objects(filename, self)
 
 
-##########################################################################################################
-
-
 class Eclipses:
     """
         Initialization of Eclipse class. For a planet the necessary data for eclipse observation get initialized here.
@@ -422,7 +396,7 @@ class Eclipses:
         self.coordinates = None
         #:int: number of eclipses occurring during max_delta_days
         self.num_eclipses = None
-        #:list: targets that are observable during max_delta_days 
+        #:list: targets that are observable during max_delta_days
         self.target_observable = []
         #:list: eclipses that are observable during max_delta_days
         self.eclipse_observable = []
@@ -451,7 +425,7 @@ class Eclipses:
                 orbital_period=self.period,
                 duration=self.transit_duration,
             )
-            
+
             self.num_eclipses = int(np.floor(max_delta_days / (self.period / u.day)))
 
             """ coordinates of the object in IRCS """
@@ -530,8 +504,8 @@ class Eclipses:
                 eclipse_error = eclipse_error[is_observable]
 
                 moon_sep, moon_phase, airmass, altazs = fun.airmass_moon_sep_obj_altaz(
-                        self, eclipse_night
-                    )
+                    self, eclipse_night
+                )
 
                 for i in range(len(eclipse_night)):
                     eclipse_triplet = eclipse_night[i]
@@ -600,9 +574,6 @@ class Eclipses:
         self.target_observable = result_target
 
         return self.eclipse_observable, self.target_observable
-
-
-##########################################################################################################
 
 
 def load_eclipses_from_file(filename, max_delta_days):
@@ -678,9 +649,6 @@ def load_eclipses_from_file(filename, max_delta_days):
             break
 
     return eclipses_list
-
-
-##########################################################################################################
 
 
 class Targets:
@@ -799,6 +767,3 @@ class Targets:
                                 },
                             }
                         )
-
-
-##########################################################################################################

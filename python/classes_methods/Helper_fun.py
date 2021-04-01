@@ -341,8 +341,7 @@ def airmass_moon_sep_obj_altaz(obs_obj, obs_time, location=paranal.location):
 ##########################################################################################################
 
 
-@help_fun_logger
-def pickle_dumper_objects(filename, Objects):
+def pickle_dumper_objects(filename, *args):
     """
         Simple function to store class objects or list of class objects ''Objects'' as .pkl file under ''filename''.
 
@@ -358,17 +357,9 @@ def pickle_dumper_objects(filename, Objects):
     path = join(dirname(__file__), "../picklefiles")
 
     with open(join(path, filename), "wb") as out:
-        if type(Objects) == list:
-            for elem in Objects:
-                for key in list(elem.__dict__.keys()):
-                    object_attribute = elem.__getattribute__(key)
-                    pickle.dump(object_attribute, out, -1)
-        else:
-            elem = Objects
-            for key in list(elem.__dict__.keys()):
-                object_attribute = elem.__getattribute__(key)
-                pickle.dump(object_attribute, out, -1)
-    print("Successfully pickled file {}".format(filename))
+        pickle.dump(args, out)
+
+    print(f"Successfully pickled file {filename}")
 
 
 ##########################################################################################################

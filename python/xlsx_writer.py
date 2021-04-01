@@ -170,7 +170,7 @@ for row_num in range(int(len(df_frame.values) / 3)):
                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num])
                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num])
     
-if type(ranked_obs_events) == pd.core.frame.DataFrame:
+if isinstance(ranked_obs_events, pd.core.frame.DataFrame):
     ranked_obs_events.reset_index(inplace=True)
     ranked_obs_events.drop(columns='level_0', inplace=True)
     for row_num in range(int(len(ranked_obs_events.values) / 3)):
