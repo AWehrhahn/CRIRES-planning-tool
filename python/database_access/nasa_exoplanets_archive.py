@@ -33,7 +33,25 @@ class NasaExoplanetsArchive:
         raise AttributeError("Set the archive via the url property")
 
     def tap(self, asql_query):       
-        """ Get data using the TAP interface """
+        """Get data from the TAP interface
+
+        Parameters
+        ----------
+        asql_query : str
+            The query to send to the TAP interface in Astronomy SQL format.
+
+        Returns
+        -------
+        data : astropy.Table
+            the returnded data
+
+        Raises
+        ------
+        ConnectionError
+            Could not establish a connection
+        RuntimeError
+            Could not get results with the given query
+        """
         data = None
         for i in range(self.timeout):
             try:
@@ -53,7 +71,21 @@ class NasaExoplanetsArchive:
         return data
 
     def query_object(self, name, regularize=True):
-        """ Get data for a specific object """
+        """Get data for a specific target
+
+        Parameters
+        ----------
+        name : str
+            Name of the target in the format "star planet"
+        regularize : bool, optional
+            Whether to check the name against the known aliases in the database.
+            The database otherwise only accepts exact matches. By default True
+
+        Returns
+        -------
+        data : astropy.Table
+            Table with the results for the target
+        """
         if regularize:
             name = NasaExoplanetArchive._regularize_object_name(name)
         asql_query = f"SELECT top 100 * FROM {self.table} WHERE hostname='{name}'"
