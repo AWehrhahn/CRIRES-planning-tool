@@ -5,8 +5,9 @@ import classes_methods.Helper_fun as fun
 from Transit_List import single_transit_calculation, get_default_constraints, full_transit_calculation, etc_calculator
 
 # TODO: Optimization
-# Planet Observability takes a lot of time
-# Already parralleized it, but still not great
+# ETC calls take the majority of the time
+# Either reduce number of calls significantly (interpolate inbetween?)
+# Or somehow send a batch request that should be faster in theory.
 
 date = "" # today
 max_delta_days = 100
