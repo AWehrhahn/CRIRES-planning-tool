@@ -90,7 +90,6 @@ from classes_methods.classes import (
     Nights,
     load_eclipses_from_file,
 )
-from classes_methods.Helper_fun import help_fun_logger
 from classes_methods.misc import misc
 
 # """ Update most recent IERS data """
@@ -249,6 +248,11 @@ def etc_calculator(eclipses_list, minimum_snr=100):
     unexpected errors, one may rerun the code from here, instead of rerunning everything again.
     """
 
+    # DEBUG: Non Parrallel version
+    for i, planet in tqdm(enumerate(eclipses_list), total=len(eclipses_list)):
+        for j, eclipse in tqdm(enumerate(planet.eclipse_observable), total=len(planet.eclipse_observable)):
+            eclipses_list[i].eclipse_observable[j] = fun.snr_estimate_nexposures(eclipse, planet, snr=minimum_snr)
+
     with ProcessPoolExecutor(max_workers=None) as executor:
         futures = {}
         for i, planet in enumerate(eclipses_list):
@@ -300,7 +304,7 @@ def single_transit_calculation(
         for ecl in eclipse.eclipse_observable:
             futures += [
                 executor.submit(
-                    fun.SN_Transit_Observation_Optimization,
+                    fun.snr_transit_observation_optimization,
                     ecl,
                     planet,
                     snr=minimum_SN,
@@ -312,7 +316,7 @@ def single_transit_calculation(
     name = eclipse.name.split(" ")
     name = name[0] + name[1]
     filename = f"{name}_events_processed_{date}_{max_delta_days}d.pkl"
-    fun.pickle_dumper_objects(filename, eclipse)
+    fun.save_pickled(filename, eclipse)
     return eclipse
 
 
@@ -386,7 +390,7 @@ if __name__ == "__main__":
     if use_etc_calculator == "y":
         eclipses_list = etc_calculator(eclipses_list, minimum_snr=minimum_snr)
         filename = 'Eclipse_events_processed_{}_{}d.pkl'.format(d, max_delta_days)
-        fun.pickle_dumper_objects(filename, eclipses_list)
+        fun.save_pickled(filename, eclipses_list)
 
     ##########################################################################################################
 

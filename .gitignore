@@ -10,8 +10,8 @@ python/Plots
 python/csv_files
 python/picklefiles
 python/*files/*processed*
-python/Transit_List.log
 python/output1.json
 etc_cli_examples
 python/classes_methods/__pycache__/
 example.cprof
+**/*.log

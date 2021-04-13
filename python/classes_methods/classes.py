@@ -206,7 +206,7 @@ class Nights(object):
                 filename = "Nights_paranal_{}_{}d.pkl".format(
                     d_str, self.max_delta_days
                 )
-                nights = fun.pickled_items(filename)
+                nights = fun.load_pickled(filename)
                 self.start = nights.__next__()
                 self.end = nights.__next__()
                 self.max_delta_days = nights.__next__()
@@ -316,7 +316,7 @@ class Nights(object):
                     d.isoformat()
                 )  # start date from which the nights in paranal are calculated
                 filename = "Nights_paranal_{}_{}d.pkl".format(d, self.max_delta_days)
-                fun.pickle_dumper_objects(filename, self)
+                fun.save_pickled(filename, self)
 
 
 class Eclipses:
@@ -606,7 +606,7 @@ def load_eclipses_from_file(filename, max_delta_days):
         else:
             return att
 
-    planet = fun.pickled_items(filename)
+    planet = fun.load_pickled(filename)
     att = None
     while True:
         planet = Eclipses(max_delta_days)

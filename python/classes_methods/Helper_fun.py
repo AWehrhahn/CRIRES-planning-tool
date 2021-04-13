@@ -12,11 +12,11 @@ import copy
 import datetime
 import json
 import logging
+import os
 import pickle
 import time
 from json import JSONDecodeError
 from os.path import dirname, join
-
 from tempfile import NamedTemporaryFile
 
 import astroplan.constraints
@@ -25,59 +25,28 @@ import matplotlib as mpl
 import numpy as np
 import pandas as pd
 import requests
+import xlsxwriter
 from astroplan import FixedTarget, Observer, moon_phase_angle
 from astroplan.plots import plot_finder_image
 from astropy import units as u
-from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_moon, get_sun
+from astropy.coordinates import (AltAz, EarthLocation, SkyCoord, get_moon,
+                                 get_sun)
 from astropy.time import Time
 from astropy.visualization import astropy_mpl_style, quantity_support
+from datetimerange import DateTimeRange
 from matplotlib import dates as mpl_dates
 from matplotlib import pyplot as plt
 
-from classes_methods import Etc_form_class, misc
+from classes_methods import misc
+from classes_methods.etc_form import EtcForm
 
 plt.style.use(astropy_mpl_style)
 quantity_support()
-import os
-
-import xlsxwriter
-from datetimerange import DateTimeRange
-
 """ Location and UTC offset Paranal """
 paranal = Observer.at_site("paranal", timezone="Chile/Continental")
+logger = logging.getLogger(__name__)
 
-##########################################################################################################
-
-
-def help_fun_logger(orig_fun):
-    """ Function to log execution of other functions """
-    logging.info("succesfully ran function:{}".format(orig_fun.__name__))
-
-    return orig_fun
-
-
-##########################################################################################################
-
-
-@help_fun_logger
-def pickled_items(filename):
-    """ Unpickle a file of pickled data. """
-    path = join(dirname(__file__), "../picklefiles")
-
-    with open(join(path, filename), "rb") as f:
-        while True:
-            try:
-                yield pickle.load(f)
-            except EOFError as e:
-                logging.exception(e)
-                break
-
-
-##########################################################################################################
-
-
-@help_fun_logger
-def Etc_calculator_Texp(obs_obj, obs_time, snr=100):
+def etc_calculator_texp(obs_obj, obs_time, snr=100):
     """
         Optimizes NDIT for the S/N minimum defined by ''snr'' for a given DIT for a certain
         observation target ''obs_obj'' at a certain observation time ''obs_time''.
@@ -112,7 +81,7 @@ def Etc_calculator_Texp(obs_obj, obs_time, snr=100):
 
     """
     ndit_opt = 24  # NDIT should optimally be between 16-32
-    etc = Etc_form_class.etc_form(inputtype="snr-Templ")
+    etc = EtcForm(inputtype="snr-Templ", instrument="crires")
     gsmag = obs_obj.star_jmag
     if gsmag < 9.3 * u.mag:
         gsmag = (
@@ -121,7 +90,7 @@ def Etc_calculator_Texp(obs_obj, obs_time, snr=100):
     moon_target_sep, moon_phase, airmass, _ = airmass_moon_sep_obj_altaz(
         obs_obj, obs_time
     )  # add moon_target_sep
-    input_data = etc.update_etc_form(
+    input_data = etc.update_form(
         snr=snr,
         temperature=obs_obj.star_teff,
         brightness=obs_obj.star_jmag,
@@ -131,20 +100,20 @@ def Etc_calculator_Texp(obs_obj, obs_time, snr=100):
         gsmag=gsmag,
     )
 
-    output = etc.run_etc_calculator(etc.input)
+    output = etc.call(input_data)
     ndit = etc.get_ndit(output)
 
+    # TODO: can we predict this better, so we don't have to send several requests?
     # Routine to change ndit to 16-32 and change dit accordingly:
     cycles = 0
     while ndit < 16 or ndit > 32:
-        exposure_time = ndit * etc.input["timesnr"]["dit"]
+        exposure_time = ndit * input_data["timesnr"]["dit"]
         dit_new = exposure_time / ndit_opt  # determine DIT for NDIT=24
-        etc.input["timesnr"]["dit"] = dit_new
-        # etc.write_etc_format_file()  # write new DIT into 'etc-form.json'
+        input_data["timesnr"]["dit"] = dit_new
         logging.info("executed cycle:{}, DIT:{}, NDIT{}".format(cycles, dit_new, ndit))
         try:
             # recalculate the new NDIT
-            output = etc.run_etc_calculator(etc.input)
+            output = etc.call(input_data)
             ndit = etc.get_ndit(output)
         except Warning:
             raise Warning("DIT seams not feasable input value: {}".format(dit_new))
@@ -154,7 +123,7 @@ def Etc_calculator_Texp(obs_obj, obs_time, snr=100):
             raise Warning("too many tries to bring NDIT between 16-32")
         cycles += 1
 
-    dit = etc.input["timesnr"]["dit"]
+    dit = input_data["timesnr"]["dit"]
     exposure_time = ndit * dit  # seconds
     logging.info(
         f"Final values: Exposure time:{exposure_time}, DIT: {dit}, NDIT:{ndit}"
@@ -163,10 +132,7 @@ def Etc_calculator_Texp(obs_obj, obs_time, snr=100):
     return exposure_time, dit, ndit, output, etc
 
 
-##########################################################################################################
-
-
-def Etc_calculator_SN(obs_obj, obs_time, ndit, dit):
+def etc_calculator_snr(obs_obj, obs_time, ndit, dit):
     """
         Calculates solely the S/N ratio for a given ''dit'' and ''ndit'' for a certain observation
         target ''obs_obj'' at a certain observation time ''obs_time''. CAUTION: This function has not been used
@@ -193,14 +159,14 @@ def Etc_calculator_SN(obs_obj, obs_time, ndit, dit):
         ETC : etc_form object
             etc_form class instance with input data for the ETC.
     """
-    etc = Etc_form_class.etc_form(inputtype="ndit-Templ")
+    etc = EtcForm(inputtype="ndit-Templ", instrument="crires")
     gsmag = obs_obj.star_jmag
-    if gsmag < 9.3:
-        gsmag = 9.3  # Check again why that one is
+    if gsmag < 9.3 * u.mag:
+        gsmag = 9.3  * u.mag # Check again why that one is
     moon_target_sep, moon_phase, airmass, _ = airmass_moon_sep_obj_altaz(
         obs_obj, obs_time
     )  # add moon_target_sep
-    etc.update_etc_form(
+    input_data = etc.update_form(
         temperature=obs_obj.star_Teff,
         brightness=obs_obj.star_jmag,
         airmass=airmass,
@@ -211,17 +177,12 @@ def Etc_calculator_SN(obs_obj, obs_time, ndit, dit):
         gsmag=gsmag,
     )
 
-    etc.write_etc_format_file()
-    output = etc.run_etc_calculator(obs_obj.name, obs_time)
+    output = etc.call(input_data)
 
     return output, etc
 
 
-##########################################################################################################
-
-
-@help_fun_logger
-def calculate_SN_ratio(sn_data):
+def calculate_snr_ratio(snr_data):
     """
         Calculates the median of the signal to noise S/N ratio data ''sn_data''.
 
@@ -239,17 +200,11 @@ def calculate_SN_ratio(sn_data):
         max_SN : float
             maximum S/N.
     """
-    # Find the median.
-    SN_sorted = np.sort(sn_data)
-    length = len(SN_sorted)
-    if length % 2 == 0:
-        median_SN = (SN_sorted[(length) // 2] + SN_sorted[(length) // 2 - 1]) / 2
-    else:
-        median_SN = SN_sorted[(length - 1) // 2]
-    min_SN = min(SN_sorted)
-    max_SN = max(SN_sorted)
-
-    return median_SN, min_SN, max_SN
+    snr_data = np.asarray(snr_data)
+    median_snr = np.median(snr_data)
+    min_snr = np.min(snr_data)
+    max_snr = np.max(snr_data)
+    return median_snr, min_snr, max_snr
 
 
 def extract_out_data(outputs):
@@ -281,7 +236,6 @@ def extract_out_data(outputs):
 
 
 
-@help_fun_logger
 def airmass_moon_sep_obj_altaz(obs_obj, obs_time, location=paranal.location):
     """
         This function calculates the moon target separation, moon phase (moon sun separation), airmass factor and local coordinates to observe
@@ -338,10 +292,14 @@ def airmass_moon_sep_obj_altaz(obs_obj, obs_time, location=paranal.location):
     return moon_target_sep, moon_phase, airmass, obs_altazs
 
 
-##########################################################################################################
+def load_pickled(filename):
+    """ Unpickle a file of pickled data. """
+    path = join(dirname(__file__), "../picklefiles")
 
-
-def pickle_dumper_objects(filename, *args):
+    with open(join(path, filename), "rb") as f:
+        return pickle.load(f)
+            
+def save_pickled(filename, *args):
     """
         Simple function to store class objects or list of class objects ''Objects'' as .pkl file under ''filename''.
 
@@ -359,13 +317,13 @@ def pickle_dumper_objects(filename, *args):
     with open(join(path, filename), "wb") as out:
         pickle.dump(args, out)
 
-    print(f"Successfully pickled file {filename}")
+    logger.debug(f"Successfully pickled file {filename}")
 
 
 ##########################################################################################################
 
 
-def SN_Transit_Observation_Optimization(eclipse, planet, snr=100):
+def snr_transit_observation_optimization(eclipse, planet, snr=100):
     """
         Calculates exactly how many exposures are possible to take during a single transit and adds the data
         to the object Eclipses.eclipse_observable. This function gets only called for single targets cause
@@ -401,7 +359,7 @@ def SN_Transit_Observation_Optimization(eclipse, planet, snr=100):
 
         """ Initial Calculation of Exposure time for Transit: eclipse """
         # for different S/N ratio add argument 'snr'= , to every Etc_calculator_Texp function
-        Exposure_time, _, _, output, _ = Etc_calculator_Texp(
+        Exposure_time, _, _, output, _ = etc_calculator_texp(
             planet, obs_time
         )  # obtimising NDIT for each single exposure with S/N min = 100 in seconds
 
@@ -423,10 +381,10 @@ def SN_Transit_Observation_Optimization(eclipse, planet, snr=100):
 
         while Transit_dur > range_obs_times:
             print("number of exposures: {}".format(num_exp))
-            Exposure_time_up, _, _, output, _ = Etc_calculator_Texp(
+            Exposure_time_up, _, _, output, _ = etc_calculator_texp(
                 planet, obs_time_up
             )  # obtimising NDIT for each single exposure with S/N min = 100 in seconds
-            Exposure_time_down, _, _, output, _ = Etc_calculator_Texp(
+            Exposure_time_down, _, _, output, _ = etc_calculator_texp(
                 planet, obs_time_down
             )  # obtimising NDIT for each single exposure with S/N min = 100 in seconds
             Exposure_times.append(Exposure_time_up)
@@ -446,7 +404,7 @@ def SN_Transit_Observation_Optimization(eclipse, planet, snr=100):
             # Observations.extend(obs_times)
             SN_data = extract_out_data(output)
             SN_data_overall.extend(SN_data)
-            median_SN, _, _ = calculate_SN_ratio(SN_data)
+            median_SN, _, _ = calculate_snr_ratio(SN_data)
             median_SN_single_exp.append(median_SN)
         Exposure_times.sort()
 
@@ -466,7 +424,7 @@ def SN_Transit_Observation_Optimization(eclipse, planet, snr=100):
                     np.ceil(range_obs_times), Transit_dur
                 )
             )
-            Median_SN, _, _ = calculate_SN_ratio(SN_data_overall)
+            Median_SN, _, _ = calculate_snr_ratio(SN_data_overall)
             median_SN_single_exp.sort()
             eclipse[
                 "Number of exposures possible"
@@ -512,21 +470,15 @@ def snr_estimate_nexposures(eclipse, planet, snr=100):
     )
 
     obs_time = eclipse["eclipse_mid"]["time"]
-    # obs_time_begin = eclipse['Eclipse Begin']['time']
-    # obs_time_end = eclipse['Eclipse End']['time']
-    transit_dur = planet.transit_duration.to_value(u.second)  # in seconds
+    transit_dur = planet.transit_duration.to_value(u.second)
     # for different S/N ratio add argument 'snr'= , to every Etc_calculator_Texp function
     # obtimising NDIT for each single exposure with S/N min = 100 in seconds
-    exposure_time, _, _, output, _ = Etc_calculator_Texp(
+    exposure_time, _, _, output, _ = etc_calculator_texp(
         planet, obs_time, snr=snr
     )  
-    # Exposure_time_begin, _, _, output, _ = Etc_calculator_Texp(planet, obs_time_begin) #obtimising NDIT for each single exposure with S/N min = 100 in seconds
-    # Exposure_time_end, _, _, output, _ = Etc_calculator_Texp(planet, obs_time_end) #obtimising NDIT for each single exposure with S/N min = 100 in seconds
-    # Exposure_times = [Exposure_time_begin, Exposure_time_mid, Exposure_time_mid] # get max exposure time
-    # Exposure_times.sort()
 
     SN_data = extract_out_data(output)
-    median_SN, min_SN, max_SN = calculate_SN_ratio(SN_data)
+    median_SN, min_SN, max_SN = calculate_snr_ratio(SN_data)
     num_exp_possible = int(np.floor(transit_dur / exposure_time))
     # estimates the number of exposures possible according to the transit duration and the maximum exposure time
     eclipse["n_exposures_possible"] = num_exp_possible
@@ -540,8 +492,7 @@ def snr_estimate_nexposures(eclipse, planet, snr=100):
 ##########################################################################################################
 
 
-@help_fun_logger
-def data_sorting_and_storing(Eclipses_List, filename=None, write_to_csv=1):
+def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
     """
         Sorting and storing final data from ''Eclipses_List'' as csv files to ''filename'',
         For now this only works with Eclipses, will include later functionality
@@ -569,10 +520,10 @@ def data_sorting_and_storing(Eclipses_List, filename=None, write_to_csv=1):
     ranking = []
     num_trans = []
 
-    if type(Eclipses_List) != list:
-        Eclipses_List = [Eclipses_List]
+    if type(eclipses_List) != list:
+        eclipses_List = [eclipses_List]
 
-    for planet in Eclipses_List:
+    for planet in eclipses_List:
         if planet.eclipse_observable != []:
 
             for eclipse in planet.eclipse_observable:
@@ -621,7 +572,7 @@ def data_sorting_and_storing(Eclipses_List, filename=None, write_to_csv=1):
         df_frame1 = frame1[0]
     df_gen1 = general1
 
-    for planet in Eclipses_List:
+    for planet in eclipses_List:
         df_per_plan = df_gen1.loc[
             (df_gen1["Name"] == planet.name)
             & (df_gen1["Number of exposures possible"] >= 20)
@@ -672,9 +623,8 @@ def data_sorting_and_storing(Eclipses_List, filename=None, write_to_csv=1):
 ##########################################################################################################
 
 
-@help_fun_logger
 def plotting_transit_data(
-    d, Max_Delta_days, ranking, Eclipses_List, Nights, ranked_events=None
+    d, max_delta_days, ranking, eclipses_list, nights, ranked_events=None
 ):
     """
         Plotting final data in ''Eclipses_List'' for the time span given in ''Nights'' or from date ''d'' for ''Max_Delta_days'' days.
@@ -704,15 +654,15 @@ def plotting_transit_data(
 
     """ Generates the class object Nights and calculates the nights for paranal between d and d_end """
 
-    if type(Eclipses_List) != list:
-        Eclipses_List = [Eclipses_List]
+    if type(eclipses_list) != list:
+        eclipses_list = [eclipses_list]
 
-    Nights = Nights(d, Max_Delta_days, LoadFromPickle=0)
+    nights = nights(d, max_delta_days, LoadFromPickle=0)
     d_orig = d
     # delta_midnight = np.linspace(-12, 12, 1000)*u.hour
 
-    if Max_Delta_days > 90:
-        for n in range(int(np.floor(Max_Delta_days / 90))):
+    if max_delta_days > 90:
+        for n in range(int(np.floor(max_delta_days / 90))):
             plt.clf()
             planet_names = []
             fig = plt.figure(figsize=(120, 1.2 * len(ranking)))
@@ -723,7 +673,7 @@ def plotting_transit_data(
             j = 0
             for elem in ranking:
                 y_planet = [y_range[j], y_range[j]]
-                for planet in Eclipses_List:
+                for planet in eclipses_list:
                     if planet.name == elem[1]:
                         tran_dur = np.float16(planet.transit_duration.to(u.hour))
                         for ecl in planet.eclipse_observable:
@@ -740,12 +690,12 @@ def plotting_transit_data(
                 planet_names.append("{} : {:.3}".format(elem[1], tran_dur))
                 j += 1
 
-            d = Nights.date[n * 90]
-            d_end = Nights.date[(n + 1) * 90]
+            d = nights.date[n * 90]
+            d_end = nights.date[(n + 1) * 90]
             lims = [d, d_end]
 
             plt.xlim(lims)
-            plt.xticks(Nights.date[n * 90 : (n + 1) * 90], fontsize=22)
+            plt.xticks(nights.date[n * 90 : (n + 1) * 90], fontsize=22)
             plt.xticks(rotation=70)
             plt.yticks(y_range, planet_names, fontsize=22)
             plt.xlabel("Date", fontsize=24)
@@ -757,21 +707,21 @@ def plotting_transit_data(
             path = join(dirname(__file__), "../Plots")
 
             fig.savefig(
-                f"{path}/{d_orig}_{Max_Delta_days}d_{d}-{d_end}-results.eps",
+                f"{path}/{d_orig}_{max_delta_days}d_{d}-{d_end}-results.eps",
                 bbox_inches="tight",
                 dpi=100,
             )
 
         """ plotting the last part of unfull months """
-        n = int(np.floor(Max_Delta_days / 90))
-        d = Nights.date[n * 90]
-        d_end = Nights.date[-1]
+        n = int(np.floor(max_delta_days / 90))
+        d = nights.date[n * 90]
+        d_end = nights.date[-1]
         lims = [d, d_end]
 
         plt.clf()
         planet_names = []
         fig = plt.figure(
-            figsize=(1.5 * len(Nights.date), 1.2 * len(ranking))
+            figsize=(1.5 * len(nights.date), 1.2 * len(ranking))
         )  # figsize=(3*len(lims),1.4*len(ranking))
         ax = fig.add_subplot(111)
         plt.style.use("seaborn-notebook")
@@ -780,7 +730,7 @@ def plotting_transit_data(
         j = 0
         for elem in ranking:
             y_planet = [y_range[j], y_range[j]]
-            for planet in Eclipses_List:
+            for planet in eclipses_list:
                 if planet.name == elem[1]:
                     tran_dur = np.float16(planet.transit_duration.to(u.hour))
                     for ecl in planet.eclipse_observable:
@@ -798,7 +748,7 @@ def plotting_transit_data(
             j += 1
 
         plt.xlim(lims)
-        plt.xticks(Nights.date[n * 90 :], fontsize=22)
+        plt.xticks(nights.date[n * 90 :], fontsize=22)
         plt.xticks(rotation=70)
         plt.yticks(y_range, planet_names, fontsize=22)
         plt.xlabel("Date", fontsize=24)
@@ -810,14 +760,14 @@ def plotting_transit_data(
         path = join(dirname(__file__), "../Plots")
 
         fig.savefig(
-            f"{path}/{d_orig}_{Max_Delta_days}d_{d}-{d_end}-results.eps",
+            f"{path}/{d_orig}_{max_delta_days}d_{d}-{d_end}-results.eps",
             bbox_inches="tight",
             dpi=100,
         )
     else:
         planet_names = []
         # plt.clf()
-        fig = plt.figure(figsize=(1.5 * len(Nights.date), 1.2 * len(ranking)))
+        fig = plt.figure(figsize=(1.5 * len(nights.date), 1.2 * len(ranking)))
         ax = fig.add_subplot(111)
         plt.style.use("seaborn-notebook")
         mpl.rc("lines", linewidth=8)
@@ -825,7 +775,7 @@ def plotting_transit_data(
         j = 0
         for elem in ranking:
             y_planet = [y_range[j], y_range[j]]
-            for planet in Eclipses_List:
+            for planet in eclipses_list:
                 if planet.name == elem[1]:
                     tran_dur = np.float16(planet.transit_duration.to(u.hour))
                     for ecl in planet.eclipse_observable:
@@ -842,13 +792,13 @@ def plotting_transit_data(
             planet_names.append("{} : {:.3}".format(elem[1], tran_dur))
             j += 1
 
-        d = Nights.date[0]
-        d_end = Nights.date[-1] + datetime.timedelta(days=1)
+        d = nights.date[0]
+        d_end = nights.date[-1] + datetime.timedelta(days=1)
         lims = [d, d_end]
 
         # fig.legend(loc='upper left')
         plt.xlim(lims)
-        plt.xticks(Nights.date, fontsize=18)
+        plt.xticks(nights.date, fontsize=18)
         plt.xticks(rotation=70)
         plt.yticks(y_range, planet_names, fontsize=18)
         plt.xlabel("Date", fontsize=24)
@@ -859,7 +809,7 @@ def plotting_transit_data(
         path = join(dirname(__file__), "../Plots")
 
         fig.savefig(
-            f"{path}/{d_orig}_{Max_Delta_days}d_{d}-{d_end}-results.eps",
+            f"{path}/{d_orig}_{max_delta_days}d_{d}-{d_end}-results.eps",
             bbox_inches="tight",
             dpi=100,
         )
@@ -888,9 +838,6 @@ def find_target_image(name):
     messier1 = FixedTarget.from_name(name)
     ax, hdu = plot_finder_image(messier1)
     plt.show()
-
-
-##########################################################################################################
 
 
 def plot_night(date, location, obs_obj, mix_types=1):
@@ -1384,9 +1331,6 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
     # print(obs_time)
     # Close the workbook
     workbook.close()
-
-
-##########################################################################################################
 
 
 def postprocessing_events(d, Max_Delta_days, Nights, Eclipses_List):
