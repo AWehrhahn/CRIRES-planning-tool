@@ -80,8 +80,8 @@ def snr_estimate_nexposures(eclipse, planet, snr=100):
     return eclipse
 
 def estimate_snr(eclipses_list, minimum_snr=100):
-    for i, planet in tqdm(enumerate(eclipses_list), total=len(eclipses_list)):
-        for j, eclipse in tqdm(enumerate(planet.eclipse_observable), total=len(planet.eclipse_observable), leave=False):
+    for i, planet in tqdm(enumerate(eclipses_list), total=len(eclipses_list), desc="Planets"):
+        for j, eclipse in tqdm(enumerate(planet.eclipse_observable), total=len(planet.eclipse_observable), leave=False, desc="Transits"):
             eclipses_list[i].eclipse_observable[j] = snr_estimate_nexposures(eclipse, planet, snr=minimum_snr)
     return eclipses_list
 
