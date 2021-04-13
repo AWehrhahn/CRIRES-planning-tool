@@ -253,15 +253,15 @@ def etc_calculator(eclipses_list, minimum_snr=100):
         for j, eclipse in tqdm(enumerate(planet.eclipse_observable), total=len(planet.eclipse_observable)):
             eclipses_list[i].eclipse_observable[j] = fun.snr_estimate_nexposures(eclipse, planet, snr=minimum_snr)
 
-    with ProcessPoolExecutor(max_workers=None) as executor:
-        futures = {}
-        for i, planet in enumerate(eclipses_list):
-            for j, eclipse in enumerate(planet.eclipse_observable):
-                futures[executor.submit(fun.snr_estimate_nexposures, eclipse, planet, snr=minimum_snr)] = (i, j)
+    # with ProcessPoolExecutor(max_workers=None) as executor:
+    #     futures = {}
+    #     for i, planet in enumerate(eclipses_list):
+    #         for j, eclipse in enumerate(planet.eclipse_observable):
+    #             futures[executor.submit(fun.snr_estimate_nexposures, eclipse, planet, snr=minimum_snr)] = (i, j)
 
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Eclipses"):
-            i, j = futures[future]
-            eclipses_list[i].eclipse_observable[j] = future.result()
+    #     for future in tqdm(as_completed(futures), total=len(futures), desc="Eclipses"):
+    #         i, j = futures[future]
+    #         eclipses_list[i].eclipse_observable[j] = future.result()
 
     return eclipses_list
 

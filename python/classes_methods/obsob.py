@@ -57,7 +57,7 @@ def ComputeSNR(m, t, airm, method="Crires", mband="K"):
 
     return SNR_airm
 
-def snr_estimate_nexposures(eclipse, planet, snr=100):
+def snr_estimate_nexposures(eclipse, planet):
     mag = planet.star_jmag.to_value(u.mag)
     exptime = planet.transit_duration.to_value(u.second)
     airmass = [eclipse[f"eclipse_{s}"]["airmass"].to_value(1) for s in ["begin", "mid", "end"]]
@@ -82,7 +82,7 @@ def snr_estimate_nexposures(eclipse, planet, snr=100):
 def estimate_snr(eclipses_list, minimum_snr=100):
     for i, planet in tqdm(enumerate(eclipses_list), total=len(eclipses_list), desc="Planets"):
         for j, eclipse in tqdm(enumerate(planet.eclipse_observable), total=len(planet.eclipse_observable), leave=False, desc="Transits"):
-            eclipses_list[i].eclipse_observable[j] = snr_estimate_nexposures(eclipse, planet, snr=minimum_snr)
+            eclipses_list[i].eclipse_observable[j] = snr_estimate_nexposures(eclipse, planet)
     return eclipses_list
 
 def GetPlanetDataNexa(planet):
