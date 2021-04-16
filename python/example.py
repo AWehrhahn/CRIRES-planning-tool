@@ -23,11 +23,11 @@ eclipse = single_transit_calculation(date, max_delta_days, name, constraints)
 eclipse = estimate_snr([eclipse], minimum_snr=100)[0]
 snr = [obs["snr_median"] for obs in eclipse.eclipse_observable]
 
-# With the ETC calculation
-# Note that the snr for the whole transit is snr_median * n_exposures_possible
-eclipse_etc = single_transit_calculation(date, max_delta_days, name, constraints)
-eclipse_etc = etc_calculator([eclipse_etc])[0]
-snr_etc = [obs["snr_median"] * obs["n_exposures_possible"] for obs in eclipse_etc.eclipse_observable]
+# # With the ETC calculation
+# # Note that the snr for the whole transit is snr_median * n_exposures_possible
+# eclipse_etc = single_transit_calculation(date, max_delta_days, name, constraints)
+# eclipse_etc = etc_calculator([eclipse_etc])[0]
+# snr_etc = [obs["snr_median"] * obs["n_exposures_possible"] for obs in eclipse_etc.eclipse_observable]
 
 # For all systems
 eclipses_list = full_transit_calculation(date, max_delta_days, constraints)

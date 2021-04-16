@@ -297,7 +297,7 @@ def load_pickled(filename):
     path = join(dirname(__file__), "../picklefiles")
 
     with open(join(path, filename), "rb") as f:
-        return pickle.load(f)
+        return pickle.load(f)[0]
             
 def save_pickled(filename, *args):
     """
@@ -345,7 +345,7 @@ def snr_transit_observation_optimization(eclipse, planet, snr=100):
 
     """ Checking if eclipse has already been processed """
     try:
-        test_empty = eclipse["Number of exposures possible"]
+        test_empty = eclipse["n_exposures_possible"]
         if test_empty != None:
             print("{} has already been processed, skipping...".format(planet.name))
     except KeyError:
@@ -353,7 +353,7 @@ def snr_transit_observation_optimization(eclipse, planet, snr=100):
         logging.info(
             "{} gets fed to ETC calculator for best observations".format(planet.name)
         )
-        obs_time = eclipse["Eclipse Mid"]["time"]
+        obs_time = eclipse["eclipse_mid"]["time"]
 
         Transit_dur = planet.transit_duration.to(u.second).value  # in seconds
 
@@ -414,7 +414,7 @@ def snr_transit_observation_optimization(eclipse, planet, snr=100):
                     num_exp
                 )
             )
-            eclipse["Number of exposures possible"] = num_exp
+            eclipse["n_exposures_possible"] = num_exp
             eclipse[
                 "Comment"
             ] = "Reaching 20 exposures with S/N = 100 exceeds Transit Duration"
@@ -427,7 +427,7 @@ def snr_transit_observation_optimization(eclipse, planet, snr=100):
             Median_SN, _, _ = calculate_snr_ratio(SN_data_overall)
             median_SN_single_exp.sort()
             eclipse[
-                "Number of exposures possible"
+                "n_exposures_possible"
             ] = num_exp  # estimates the number of exposures possible according to the transit duration and the maximum exposure time calculated reaching 20 exposures
             eclipse["Time necessary to reach 20 exposures [s]"] = np.ceil(
                 range_obs_times
@@ -511,7 +511,7 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
         Returns
         -------
         ranking : list
-            Ranking of the Transits according to (Number of exposures possible)**2 * (number of Transit in computed timespan).
+            Ranking of the Transits according to (n_exposures_possible)**2 * (number of Transit in computed timespan).
 
     """
     frame1 = []
@@ -527,38 +527,32 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
         if planet.eclipse_observable != []:
 
             for eclipse in planet.eclipse_observable:
-                try:
-                    # if eclipse['Number of exposures possible'] == 'Target does not reach 20 exposures':
-                    #     pass
-                    # else:
-                    eclipse1 = copy.deepcopy(eclipse)
+                eclipse1 = copy.deepcopy(eclipse)
 
-                    ecl_data = []
-                    ecl_data
-                    for key in ["Eclipse Begin", "Eclipse Mid", "Eclipse End"]:
-                        eclipse1[key]["az"] = np.float32(eclipse1[key]["az"])
-                        eclipse1[key]["alt"] = np.float32(eclipse1[key]["alt"])
-                        ecl_data.append(eclipse1[key])
-                        eclipse1.pop(key)
-                    try:
-                        eclipse1.pop("List of Exposure Times")
-                    except KeyError:
-                        pass
-                    general1.append(eclipse1)
-                    ecl_data = pd.DataFrame(ecl_data)
-                    ecl_data.rename(
-                        index={
-                            0: f"Eclipse Begin : {eclipse['Name']}",
-                            1: f"Eclipse Mid : {eclipse['Name']}",
-                            2: f"Eclipse End : {eclipse['Name']}",
-                        },
-                        inplace=True,
-                    )
-                    frame1.append(ecl_data)
-                except Exception:
-                    print(
-                        f"{planet.name} could not be processed by the ETC and is excluded from the final processing"
-                    )
+                ecl_data = []
+                
+                for key in ["eclipse_begin", "eclipse_mid", "eclipse_end"]:
+                    eclipse1[key]["az"] = np.float32(eclipse1[key]["az"])
+                    eclipse1[key]["alt"] = np.float32(eclipse1[key]["alt"])
+                    eclipse1[key]["moon sep"] = eclipse1[key]["moon sep"].to_value("deg")
+                    eclipse1[key]["moon phase"] = eclipse1[key]["moon phase"].to_value("deg")
+                    ecl_data.append(eclipse1[key])
+                    eclipse1.pop(key)
+                try:
+                    eclipse1.pop("List of Exposure Times")
+                except KeyError:
+                    pass
+                general1.append(eclipse1)
+                ecl_data = pd.DataFrame(ecl_data)
+                ecl_data.rename(
+                    index={
+                        0: f"eclipse_begin : {eclipse['name']}",
+                        1: f"eclipse_mid : {eclipse['name']}",
+                        2: f"eclipse_end : {eclipse['name']}",
+                    },
+                    inplace=True,
+                )
+                frame1.append(ecl_data)
 
     if frame1 == []:
         raise Warning(
@@ -574,13 +568,13 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
 
     for planet in eclipses_List:
         df_per_plan = df_gen1.loc[
-            (df_gen1["Name"] == planet.name)
-            & (df_gen1["Number of exposures possible"] >= 20)
+            (df_gen1["name"] == planet.name)
+            & (df_gen1["n_exposures_possible"] >= 20)
         ]
         if len(df_per_plan) == 0:
             num_exp_mean = 0
         else:
-            num_exp_mean = df_per_plan["Number of exposures possible"].sum(
+            num_exp_mean = df_per_plan["n_exposures_possible"].sum(
                 axis=0
             ) / len(df_per_plan)
         ranking.append(((len(df_per_plan) * num_exp_mean ** 2), planet.name))
@@ -590,18 +584,18 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
     df_gen_ranking = []
     df_gen_num_trans = []
     for elem, elem1 in zip(ranking, num_trans):
-        for name in df_gen1["Name"]:
+        for name in df_gen1["name"]:
             if elem[1] == name:
                 df_gen_ranking.append(elem[0])
                 df_gen_num_trans.append(elem1[0])
     df_gen1["rank"] = df_gen_ranking
-    df_gen1["Number of transits"] = df_gen_num_trans
-    df_gen1.sort_values("Number of exposures possible", inplace=True)
+    df_gen1["n_transits"] = df_gen_num_trans
+    df_gen1.sort_values("n_exposures_possible", inplace=True)
 
     df_gen1 = df_gen1.reindex(index=df_gen1.index[::-1])
     df_gen1.reset_index(drop=True, inplace=True)
     ranking.sort()
-    df_gen1.drop(columns=["Primary eclipse observable?"], inplace=True)
+    df_gen1.drop(columns=["is_primary_eclipse_observable"], inplace=True)
     if write_to_csv == 1:
         path = join(dirname(__file__), "../csv_files")
         if filename == None:
@@ -612,7 +606,7 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
             file = filename.split(".")[0]
             filename = file + ".csv"
 
-        with open(path + filename, "w") as f:
+        with open(join(path, filename), "w") as f:
             df_gen1.to_csv(f, index=False)
             df_frame1_sorted.to_csv(f)
         print(f"Data written to {filename}")
@@ -638,7 +632,7 @@ def plotting_transit_data(
             Date span to plot the data for.
 
         ranking : list
-            Ranking of the Transits according to (Number of exposures possible)**2 * (number of Transit in computed timespan).
+            Ranking of the Transits according to (n_exposures_possible)**2 * (number of Transit in computed timespan).
 
         Eclipses_List : list
             contains Eclipses class objects, which should be plotted.
@@ -657,7 +651,7 @@ def plotting_transit_data(
     if type(eclipses_list) != list:
         eclipses_list = [eclipses_list]
 
-    nights = nights(d, max_delta_days, LoadFromPickle=0)
+    nights = nights(d, max_delta_days, load_from_pickle=0)
     d_orig = d
     # delta_midnight = np.linspace(-12, 12, 1000)*u.hour
 
@@ -678,12 +672,12 @@ def plotting_transit_data(
                         tran_dur = np.float16(planet.transit_duration.to(u.hour))
                         for ecl in planet.eclipse_observable:
                             x_planet = [
-                                ecl["Eclipse Begin"]["time"].value,
-                                ecl["Eclipse End"]["time"].value,
+                                ecl["eclipse_begin"]["time"].value,
+                                ecl["eclipse_end"]["time"].value,
                             ]
-                            if ecl["obs time error"] > 1 / 24:
+                            if ecl["obs_time_error"] > 1 / 24:
                                 ax.plot(x_planet, y_planet, color="red")
-                            elif ecl["Number of exposures possible"] < 20:
+                            elif ecl["n_exposures_possible"] < 20:
                                 ax.plot(x_planet, y_planet, color="orange")
                             else:
                                 ax.plot(x_planet, y_planet, color="blue")
@@ -735,12 +729,12 @@ def plotting_transit_data(
                     tran_dur = np.float16(planet.transit_duration.to(u.hour))
                     for ecl in planet.eclipse_observable:
                         x_planet = [
-                            ecl["Eclipse Begin"]["time"].value,
-                            ecl["Eclipse End"]["time"].value,
+                            ecl["eclipse_begin"]["time"].value,
+                            ecl["eclipse_end"]["time"].value,
                         ]
-                        if ecl["obs time error"] > 1 / 24:
+                        if ecl["obs_time_error"] > 1 / 24:
                             ax.plot(x_planet, y_planet, color="orange")
-                        elif ecl["Number of exposures possible"] < 20:
+                        elif ecl["n_exposures_possible"] < 20:
                             ax.plot(x_planet, y_planet, color="red")
                         else:
                             ax.plot(x_planet, y_planet, color="blue")
@@ -780,12 +774,12 @@ def plotting_transit_data(
                     tran_dur = np.float16(planet.transit_duration.to(u.hour))
                     for ecl in planet.eclipse_observable:
                         x_planet = [
-                            ecl["Eclipse Begin"]["time"].value,
-                            ecl["Eclipse End"]["time"].value,
+                            ecl["eclipse_begin"]["time"].value,
+                            ecl["eclipse_end"]["time"].value,
                         ]
-                        if ecl["obs time error"] > 1 / 24:
+                        if ecl["obs_time_error"] > 1 / 24:
                             ax.plot(x_planet, y_planet, color="red")
-                        elif ecl["Number of exposures possible"] < 20:
+                        elif ecl["n_exposures_possible"] < 20:
                             ax.plot(x_planet, y_planet, color="orange")
                         else:
                             ax.plot(x_planet, y_planet, color="blue")
@@ -907,8 +901,8 @@ def plot_night(date, location, obs_obj, mix_types=1):
             ):  # If object is related to eclipses
                 for eclipse in obs_obj.eclipse_observable:
                     eclipse1 = copy.deepcopy(eclipse)
-                    if eclipse1["Eclipse Mid"]["time"].datetime.date() == date.date():
-                        obs_time = eclipse1["Eclipse Mid"]["time"]
+                    if eclipse1["eclipse_mid"]["time"].datetime.date() == date.date():
+                        obs_time = eclipse1["eclipse_mid"]["time"]
                         t = obs_time.datetime.time()
                         h = (t.hour + t.minute / 60 + t.second / 3600) * u.hour
                         delta_eclipse = np.linspace(
@@ -940,7 +934,7 @@ def plot_night(date, location, obs_obj, mix_types=1):
                             vmin=-10,
                             vmax=10,
                         )  # plot candidate
-                        if eclipse["Number of exposures possible"] >= 20:
+                        if eclipse["n_exposures_possible"] >= 20:
                             ax1.scatter(
                                 delta_eclipse, obs_ecl.alt, color="red", lw=3, s=8
                             )
@@ -974,8 +968,8 @@ def plot_night(date, location, obs_obj, mix_types=1):
         if hasattr(obs_obj, "eclipse_observable"):  # If object is related to eclipses
             for eclipse in obs_obj.eclipse_observable:
                 eclipse1 = copy.deepcopy(eclipse)
-                if eclipse1["Eclipse Mid"]["time"].datetime.date() == date.date():
-                    obs_time = eclipse1["Eclipse Mid"]["time"]
+                if eclipse1["eclipse_mid"]["time"].datetime.date() == date.date():
+                    obs_time = eclipse1["eclipse_mid"]["time"]
                     t = obs_time.datetime.time()
                     h = (t.hour + t.minute / 60 + t.second / 3600) * u.hour
                     delta_eclipse = np.linspace(
@@ -1008,7 +1002,7 @@ def plot_night(date, location, obs_obj, mix_types=1):
                         vmin=-10,
                         vmax=10,
                     )  # plot candidate
-                    if eclipse["Number of exposures possible"] >= 20:
+                    if eclipse["n_exposures_possible"] >= 20:
                         ax1.scatter(
                             delta_eclipse, obs_ecl.alt, color="red", lw=3, s=8
                         )  # plot transit
@@ -1124,7 +1118,7 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
             if (col_num == 2 and cell_data > 1 / 24) or (
                 col_num == 6 and cell_data < 20
             ):
-                obs_time.append(df_gen["obs time"][row_num])
+                obs_time.append(df_gen["obs_time"][row_num])
                 try:
                     worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
                 except TypeError:
@@ -1444,13 +1438,13 @@ def postprocessing_events(d, Max_Delta_days, Nights, Eclipses_List):
             for n in range(len(df_gen)):
                 if (
                     single_obs.loc[0]["index"].split(":")[1][1:]
-                    == df_gen.loc[n]["Name"]
+                    == df_gen.loc[n]["name"]
                 ):
-                    if df_gen.loc[n]["Number of exposures possible"] < 20:
+                    if df_gen.loc[n]["n_exposures_possible"] < 20:
                         pass
                     else:
                         final_ranking_per_night += df_gen.loc[n][
-                            "Number of exposures possible"
+                            "n_exposures_possible"
                         ]
         obs[0] = final_ranking_per_night
 

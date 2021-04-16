@@ -91,6 +91,7 @@ from classes_methods.classes import (
     load_eclipses_from_file,
 )
 from classes_methods.misc import misc
+from classes_methods.Helper_fun import load_pickled, save_pickled
 
 # """ Update most recent IERS data """
 # iers.Conf.iers_auto_url.set(
@@ -165,7 +166,7 @@ def parallel_func(planet, max_delta_days, obs_time, nights_paranal, constraints)
     return eclipse
 
 
-def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_new"):
+def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_new", parallel=True):
 
     date, max_delta_days, d_end = parse_date(date, max_delta_days)
 
@@ -189,39 +190,47 @@ def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_ne
     midnight = datetime.time(0, 0, 0)
     obs_time = Time(datetime.datetime.combine(nights_paranal.date[0], midnight))
 
-    eclipses_list = []
-    with ProcessPoolExecutor() as executor:
-        futures = []
-        for _, planet in tqdm(
-            exoplanets.data_complete.iterrows(),
-            total=n_planets,
-            desc="Launched Processes",
-        ):
-            futures += [
-                executor.submit(
-                    parallel_func,
-                    planet,
-                    max_delta_days,
-                    obs_time,
-                    nights_paranal,
-                    constraints,
-                )
-            ]
-
-        for future in tqdm(
-            as_completed(futures), total=n_planets, desc="Collected Processes"
-        ):
-            result = future.result()
+    if not parallel:
+        # Sequential version
+        eclipses_list = []
+        for _, planet in tqdm(exoplanets.data_complete.iterrows(), desc="Planets", total=len(exoplanets.data_complete)):
+            result = parallel_func(planet, max_delta_days, obs_time, nights_paranal, constraints)
             if len(result.eclipse_observable) != 0:
                 eclipses_list += [result]
+    else:
+        # Parallel version
+        eclipses_list = []
+        with ProcessPoolExecutor() as executor:
+            futures = []
+            for _, planet in tqdm(
+                exoplanets.data_complete.iterrows(),
+                total=n_planets,
+                desc="Launched Processes",
+            ):
+                futures += [
+                    executor.submit(
+                        parallel_func,
+                        planet,
+                        max_delta_days,
+                        obs_time,
+                        nights_paranal,
+                        constraints,
+                    )
+                ]
 
+            for future in tqdm(
+                as_completed(futures), total=n_planets, desc="Collected Processes"
+            ):
+                result = future.result()
+                if len(result.eclipse_observable) != 0:
+                    eclipses_list += [result]
     return eclipses_list
 
 
-def call_etc_for_list_of_transits(date, max_delta_days, filename):
+def call_etc_for_list_of_transits(date, max_delta_days, filename=None):
     date, max_delta_days, d_end = parse_date(date, max_delta_days)
-
-    date = datetime.date.fromisoformat(date)
+    if filename is None:
+        filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
     eclipses_list = load_eclipses_from_file(filename, max_delta_days)
     return eclipses_list
 
@@ -299,6 +308,8 @@ def single_transit_calculation(
     if len(eclipse.eclipse_observable) == 0:
         raise Warning(f"No observable eclipse found for {name}")
 
+    
+
     with ThreadPoolExecutor(max_workers=None) as executor:
         futures = []
         for ecl in eclipse.eclipse_observable:
@@ -321,7 +332,7 @@ def single_transit_calculation(
 
 
 if __name__ == "__main__":
-    check_connection()
+    # check_connection()
 
     """ Ask for menu input """
     k = misc.user_menu(
@@ -359,37 +370,43 @@ if __name__ == "__main__":
             msg="Do you want to call the ETC calculator to process the results S/N ratio? (WARNING : Only works with stable internet connection!) y/n "
         )
 
-        full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
+        eclipses_list = full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
+        date, max_delta_days, d_end = parse_date(date, max_delta_days)
+        filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
+        save_pickled(filename, eclipses_list)
 
     ##########################################################################################################
 
     if k == 2:
-        use_etc_calculator = "y"
         date = misc.ask_for_value(
             msg="Enter date like 2020-05-28 of the file of transit data you want to use "
         )
         max_delta_days = misc.ask_for_value(
             msg="Enter timespan in days to the appropriate file "
         )
-        filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
         ans = misc.ask_for_value(
-            msg=f"Do you want to load file : {filename} to feed to ETC? [y,n]"
+            msg=f"Do you want to load file the default file to feed to ETC? [y,n]"
         )
         if ans == "n":
             filename = misc.ask_for_value(msg="Enter filename with data to plot:  ")
         elif ans == "y":
-            pass
+            filename = None
         else:
             print("Gosh, what do you want then???")
-            sys.exit()
+            exit()
 
-        eclipses_list = call_etc_for_list_of_transits(date, max_delta_days, filename)
+        date, max_delta_days, d_end = parse_date(date, max_delta_days)
+        if filename is None:
+            filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
+        eclipses_list = load_pickled(filename)
+        use_etc_calculator = "y"
+
 
     ##########################################################################################################
     """ ETC part to process list of observable candidates """
     if use_etc_calculator == "y":
         eclipses_list = etc_calculator(eclipses_list, minimum_snr=minimum_snr)
-        filename = 'Eclipse_events_processed_{}_{}d.pkl'.format(d, max_delta_days)
+        filename = 'Eclipse_events_processed_{}_{}d.pkl'.format(date, max_delta_days)
         fun.save_pickled(filename, eclipses_list)
 
     ##########################################################################################################
@@ -407,10 +424,8 @@ if __name__ == "__main__":
         name = misc.ask_for_value(
             msg="Enter name like KELT-10 b of planet you want check observability "
         )
-
-        Planet = single_transit_calculation(
-            date, max_delta_days, name, constraints, eclipses_list
-        )
+        planet = single_transit_calculation(date, max_delta_days, name, constraints)
+        eclipses_list = [planet]
 
     ##########################################################################################################
 
@@ -478,14 +493,13 @@ if __name__ == "__main__":
     ##########################################################################################################
 
     if k == 1 and use_etc_calculator == "n":
-        sys.exit()
-
-    if k in [1, 2, 3, 4]:
+        exit()
+    elif k in [1, 2, 3, 4]:
         """ Storing data and plotting data """
         if k in [1, 2, 4]:
             data = eclipses_list
         elif k == 3:
-            data = Planet
+            data = planet
         else:
             raise Exception("What happened?")
 
@@ -520,9 +534,9 @@ if __name__ == "__main__":
             else:
                 filename = filename.split(".")[0] + ".pkl"
 
-            d = datetime.date.fromisoformat(filename.split("_")[-2])
-            Max_Delta_days = int((filename.split("_")[-1].split(".")[0]).split("d")[0])
-            eclipses_list = load_eclipses_from_file(filename, Max_Delta_days)
+            date = datetime.date.fromisoformat(filename.split("_")[-2])
+            max_delta_days = int((filename.split("_")[-1].split(".")[0]).split("d")[0])
+            eclipses_list = load_eclipses_from_file(filename, max_delta_days)
 
     if k2 == 1 and k == 5:
         """ Plotting candidates over full period """
@@ -530,27 +544,27 @@ if __name__ == "__main__":
             eclipses_list, write_to_csv=0
         )
         ranked_events, Obs_events = fun.postprocessing_events(
-            d, Max_Delta_days, Nights, eclipses_list
+            date, max_delta_days, Nights, eclipses_list
         )
         fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
         ranking = fun.plotting_transit_data(
-            d, Max_Delta_days, ranking, eclipses_list, Nights, ranked_events
+            date, max_delta_days, ranking, eclipses_list, Nights, ranked_events
         )
     elif k2 == 1:
         ranking = fun.plotting_transit_data(
-            d, Max_Delta_days, ranking, eclipses_list, Nights, ranked_events
+            date, max_delta_days, ranking, eclipses_list, Nights, ranked_events
         )
 
     if k2 == 2:
         """ Plot single night of (mutual) target(s) """
-        d = misc.ask_for_value(
+        date = misc.ask_for_value(
             msg="Enter date like 2020-05-28 of the night you want to investigate, CAUTION: dates are regarded with respect to UTC "
         )
-        d = datetime.date.fromisoformat(d)
+        date = datetime.date.fromisoformat(date)
         midn = datetime.time(0, 0, 0)
-        d = datetime.datetime.combine(d, midn)
+        date = datetime.datetime.combine(date, midn)
         name = misc.ask_for_value(
-            msg=f"Do you want to plot all mutually observable targets for the night of the {d}? Press enter, otherwise write the name of the target you want to plot "
+            msg=f"Do you want to plot all mutually observable targets for the night of the {date}? Press enter, otherwise write the name of the target you want to plot "
         )
         found = 0
         if name != "":
@@ -559,11 +573,11 @@ if __name__ == "__main__":
             # else:
             for planet in eclipses_list:
                 if planet.name == name:
-                    fun.plot_night(d, location=paranal.location, obs_obj=planet)
+                    fun.plot_night(date, location=paranal.location, obs_obj=planet)
                     found = 1
         if found == 0:
             print("Did not get valid name, plotting all candidates...")
-            fun.plot_night(d, location=paranal.location, obs_obj=eclipses_list)
+            fun.plot_night(date, location=paranal.location, obs_obj=eclipses_list)
 
     if k2 == 3:
         """ Get target finder image """

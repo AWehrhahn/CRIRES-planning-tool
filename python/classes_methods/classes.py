@@ -471,6 +471,10 @@ class Eclipses:
 
         logger.info(f"{self.name} is getting processed")
         result_eclipse, result_target = [], []
+        if self.num_eclipses == 0:
+            self.eclipse_observable = result_eclipse
+            self.target_observable = result_target
+            return self.eclipse_observable, self.target_observable
 
         eclipse_times = self.planets_eclipse.next_primary_eclipse_time(
             obs_time, n_eclipses=self.num_eclipses
@@ -518,6 +522,7 @@ class Eclipses:
                         "transit_duration": self.transit_duration,
                         "stellar_effective_temperature": self.star_teff,
                         "magnitude_j": self.star_jmag,
+                        "n_exposures_possible": self.num_eclipses,
                     }
                     eclipse_dict.update(
                         {
