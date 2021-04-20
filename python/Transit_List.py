@@ -148,8 +148,12 @@ def parse_date(date, max_delta_days):
     max_delta_days = int(max_delta_days)
     if date == "" or date is None:
         date = datetime.date.today()
+    elif isinstance(date, datetime.date):
+        pass
+    elif isinstance(date, datetime.datetime):
+        date = date.date()
     else:
-        date = datetime.date.fromisoformat(date)
+        date = datetime.date.fromisoformat(str(date))
 
     dt = datetime.timedelta(days=1)
     date_end = max_delta_days * dt + date
@@ -307,8 +311,6 @@ def single_transit_calculation(
 
     if len(eclipse.eclipse_observable) == 0:
         raise Warning(f"No observable eclipse found for {name}")
-
-    
 
     with ThreadPoolExecutor(max_workers=None) as executor:
         futures = []
