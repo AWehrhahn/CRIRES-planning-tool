@@ -1081,35 +1081,39 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
     )
 
     df_frame.reset_index(inplace=True)
-
-    workbook = writer.book
+    
+    # Set up a workbook for the candidates
+    workbookCandidates = writer.book
     # Set up a format
     # book_format = workbook.add_format(properties={'bold': True, 'font_color': 'red'})
-    cell_format = workbook.add_format()
+    cell_format = workbookCandidates.add_format()
 
     cell_format.set_pattern(1)  # This is optional when using a solid fill.
     cell_format.set_bg_color("red")  # Highlights the background of the cell
 
     # Create a sheet
-    worksheet1 = workbook.add_worksheet("Candidates")
-    worksheet1.set_column(0, 1, 25)
-    worksheet1.set_column(2, 12, 20)
-    # worksheet2 = workbook.add_worksheet('Observations')
-    # worksheet2.set_column(0, 12, 25)
+    worksheetCand = workbookCandidates.add_worksheet("Candidates")
+    worksheetCand.set_column(0, 1, 25)
+    worksheetCand.set_column(2, 12, 20)
+    
+    # Set up a workbook for the observations
+    workbookObservations = writer.book
+    # worksheetObs = workbook.add_worksheet('Observations')
+    # worksheetObs.set_column(0, 12, 25)
     if type(ranked_obs_events) == pd.core.frame.DataFrame:
-        worksheet3 = workbook.add_worksheet("Ranked Observations")
-        worksheet3.set_column(0, 12, 25)
+        worksheetRankObs = workbookObservations.add_worksheet("Ranked Observations")
+        worksheetRankObs.set_column(0, 12, 25)
         for col_num, header in enumerate(ranked_obs_events.keys()):
-            worksheet3.write(0, col_num, header)
+            worksheetRankObs.write(0, col_num, header)
     else:
         pass
 
     # Write the headers
     for col_num, header in enumerate(df_gen.keys()):
-        worksheet1.write(0, col_num, header)
+        worksheetCand.write(0, col_num, header)
 
     # for col_num, header in enumerate(df_frame.keys()):
-    #     worksheet2.write(0, col_num, header)
+    #     worksheetObs.write(0, col_num, header)
 
     obs_time = []
     # Save the data from the OrderedDict into the excel sheet
@@ -1120,24 +1124,25 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
             ):
                 obs_time.append(df_gen["obs_time"][row_num])
                 try:
-                    worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
+                    worksheetCand.write(row_num + 1, col_num, cell_data, cell_format)
                 except TypeError:
                     if type(cell_data) == astropy.time.Time:
                         cell_data = cell_data.value.isoformat()
                     else:
                         cell_data = cell_data.value
-                    worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
+                    worksheetCand.write(row_num + 1, col_num, cell_data, cell_format)
             else:
                 try:
-                    worksheet1.write(row_num + 1, col_num, cell_data)
+                    worksheetCand.write(row_num + 1, col_num, cell_data)
                 except TypeError:
                     if type(cell_data) == astropy.time.Time:
                         cell_data = cell_data.value.isoformat()
                     else:
                         cell_data = cell_data.value
-                    worksheet1.write(row_num + 1, col_num, cell_data)
+                    worksheetCand.write(row_num + 1, col_num, cell_data)
 
     # # Save the data from the OrderedDict into the excel sheet
+    # *** worksheet2 = has now been renamed worksheetObs
     # for row_num in range(int(len(df_frame.values) / 3)):
     #     row_num = row_num * 3
     #     obs_t = copy.deepcopy(df_frame['time'][row_num+1]) # to compare to transit mid time
@@ -1202,19 +1207,19 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
                         and type(ranked_obs_events.values[row_num][col_num])
                         != datetime.time
                     ):
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 1,
                             col_num,
                             ranked_obs_events.values[row_num][col_num],
                             cell_format,
                         )
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 2,
                             col_num,
                             ranked_obs_events.values[row_num + 1][col_num],
                             cell_format,
                         )
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 3,
                             col_num,
                             ranked_obs_events.values[row_num + 2][col_num],
@@ -1242,19 +1247,19 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
                             row_num + 2, "time"
                         ] = ranked_obs_events.loc[row_num + 2, "time"].isoformat()
 
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 1,
                             col_num,
                             ranked_obs_events.values[row_num][col_num],
                             cell_format,
                         )
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 2,
                             col_num,
                             ranked_obs_events.values[row_num + 1][col_num],
                             cell_format,
                         )
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 3,
                             col_num,
                             ranked_obs_events.values[row_num + 2][col_num],
@@ -1268,17 +1273,17 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
                         and type(ranked_obs_events.values[row_num][col_num])
                         != datetime.time
                     ):
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 1,
                             col_num,
                             ranked_obs_events.values[row_num][col_num],
                         )
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 2,
                             col_num,
                             ranked_obs_events.values[row_num + 1][col_num],
                         )
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 3,
                             col_num,
                             ranked_obs_events.values[row_num + 2][col_num],
@@ -1305,17 +1310,17 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
                             row_num + 2, "time"
                         ] = ranked_obs_events.loc[row_num + 2, "time"].isoformat()
 
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 1,
                             col_num,
                             ranked_obs_events.values[row_num][col_num],
                         )
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 2,
                             col_num,
                             ranked_obs_events.values[row_num + 1][col_num],
                         )
-                        worksheet3.write(
+                        worksheetRankObs.write(
                             row_num + 3,
                             col_num,
                             ranked_obs_events.values[row_num + 2][col_num],
@@ -1324,7 +1329,7 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
         pass
     # print(obs_time)
     # Close the workbook
-    workbook.close()
+    workbookObservations.close()
 
 
 def postprocessing_events(d, Max_Delta_days, Nights, Eclipses_List):

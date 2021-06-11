@@ -329,7 +329,8 @@ def single_transit_calculation(
     name = eclipse.name.split(" ")
     name = name[0] + name[1]
     filename = f"{name}_events_processed_{date}_{max_delta_days}d.pkl"
-    fun.save_pickled(filename, eclipse)
+    fun.save_pickled(filename)
+    fun.save_pickled(eclipse)
     return eclipse
 
 
@@ -375,7 +376,8 @@ if __name__ == "__main__":
         eclipses_list = full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
         date, max_delta_days, d_end = parse_date(date, max_delta_days)
         filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
-        save_pickled(filename, eclipses_list)
+        save_pickled(filename)
+        save_pickled(eclipses_list)
 
     ##########################################################################################################
 
@@ -409,7 +411,8 @@ if __name__ == "__main__":
     if use_etc_calculator == "y":
         eclipses_list = etc_calculator(eclipses_list, minimum_snr=minimum_snr)
         filename = 'Eclipse_events_processed_{}_{}d.pkl'.format(date, max_delta_days)
-        fun.save_pickled(filename, eclipses_list)
+        fun.save_pickled(filename)
+        fun.save_pickled(eclipses_list)
 
     ##########################################################################################################
 

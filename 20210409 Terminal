@@ -1,0 +1,620 @@
+Last login: Thu Apr  8 12:33:31 on ttys000
+(base) linnboldtc@phy-trefor ~ % cd CRIRES-planning-tool/python
+(base) linnboldtc@phy-trefor python % pip install virtualenv
+Requirement already satisfied: virtualenv in /Users/linnboldtc/opt/anaconda3/lib/python3.8/site-packages (20.4.3)
+Requirement already satisfied: six<2,>=1.9.0 in /Users/linnboldtc/opt/anaconda3/lib/python3.8/site-packages (from virtualenv) (1.15.0)
+Requirement already satisfied: distlib<1,>=0.3.1 in /Users/linnboldtc/opt/anaconda3/lib/python3.8/site-packages (from virtualenv) (0.3.1)
+Requirement already satisfied: filelock<4,>=3.0.0 in /Users/linnboldtc/opt/anaconda3/lib/python3.8/site-packages (from virtualenv) (3.0.12)
+Requirement already satisfied: appdirs<2,>=1.4.3 in /Users/linnboldtc/opt/anaconda3/lib/python3.8/site-packages (from virtualenv) (1.4.4)
+(base) linnboldtc@phy-trefor python % virtualenv --python python3.8 venv
+created virtual environment CPython3.8.3.final.0-64 in 561ms
+  creator CPython3Posix(dest=/Users/linnboldtc/CRIRES-planning-tool/python/venv, clear=False, no_vcs_ignore=False, global=False)
+  seeder FromAppData(download=False, pip=bundle, setuptools=bundle, wheel=bundle, via=copy, app_data_dir=/Users/linnboldtc/Library/Application Support/virtualenv)
+    added seed packages: pip==21.0.1, setuptools==54.1.2, wheel==0.36.2
+  activators BashActivator,CShellActivator,FishActivator,PowerShellActivator,PythonActivator,XonshActivator
+(base) linnboldtc@phy-trefor python % source venv/bin/activate
+(venv) (base) linnboldtc@phy-trefor python % pip install -r requirements.txt
+ERROR: Could not open requirements file: [Errno 2] No such file or directory: 'requirements.txt'
+(venv) (base) linnboldtc@phy-trefor python % open .
+(venv) (base) linnboldtc@phy-trefor python % pip install -r requirements.txt
+ERROR: Could not open requirements file: [Errno 2] No such file or directory: 'requirements.txt'
+(venv) (base) linnboldtc@phy-trefor python % pip install -r requirements.txt
+Collecting numpy==1.18.5
+  Downloading numpy-1.18.5-cp38-cp38-macosx_10_9_x86_64.whl (15.1 MB)
+     |████████████████████████████████| 15.1 MB 6.0 MB/s 
+Collecting scipy
+  Downloading scipy-1.6.2-cp38-cp38-macosx_10_9_x86_64.whl (30.8 MB)
+     |████████████████████████████████| 30.8 MB 5.9 MB/s 
+Collecting pandas==1.0.5
+  Downloading pandas-1.0.5-cp38-cp38-macosx_10_9_x86_64.whl (10.2 MB)
+     |████████████████████████████████| 10.2 MB 6.9 MB/s 
+Collecting astropy==4.0
+  Downloading astropy-4.0-cp38-cp38-macosx_10_9_x86_64.whl (6.5 MB)
+     |████████████████████████████████| 6.5 MB 5.4 MB/s 
+Collecting astroplan==0.6
+  Downloading astroplan-0.6-py3-none-any.whl (100 kB)
+     |████████████████████████████████| 100 kB 3.4 MB/s 
+Collecting astroquery==0.4
+  Downloading astroquery-0.4.tar.gz (4.5 MB)
+     |████████████████████████████████| 4.5 MB 4.3 MB/s 
+Collecting matplotlib==3.2.2
+  Downloading matplotlib-3.2.2-cp38-cp38-macosx_10_9_x86_64.whl (12.5 MB)
+     |████████████████████████████████| 12.5 MB 7.2 MB/s 
+Collecting requests==2.24.0
+  Downloading requests-2.24.0-py2.py3-none-any.whl (61 kB)
+     |████████████████████████████████| 61 kB 890 kB/s 
+Collecting requests-futures==1.0.0
+  Downloading requests-futures-1.0.0.tar.gz (10 kB)
+Collecting DateTimeRange==1.0.0
+  Downloading DateTimeRange-1.0.0-py3-none-any.whl (7.5 kB)
+Collecting XlsxWriter==1.2.9
+  Downloading XlsxWriter-1.2.9-py2.py3-none-any.whl (141 kB)
+     |████████████████████████████████| 141 kB 13.2 MB/s 
+Collecting six
+  Downloading six-1.15.0-py2.py3-none-any.whl (10 kB)
+Collecting pytz
+  Downloading pytz-2021.1-py2.py3-none-any.whl (510 kB)
+     |████████████████████████████████| 510 kB 10.5 MB/s 
+Collecting keyring>=4.0
+  Downloading keyring-23.0.1-py3-none-any.whl (33 kB)
+Collecting beautifulsoup4>=4.3.2
+  Downloading beautifulsoup4-4.9.3-py3-none-any.whl (115 kB)
+     |████████████████████████████████| 115 kB 10.8 MB/s 
+Collecting html5lib>=0.999
+  Downloading html5lib-1.1-py2.py3-none-any.whl (112 kB)
+     |████████████████████████████████| 112 kB 13.1 MB/s 
+Collecting python-dateutil<3,>=2.4.2
+  Downloading python_dateutil-2.8.1-py2.py3-none-any.whl (227 kB)
+     |████████████████████████████████| 227 kB 10.5 MB/s 
+Collecting typepy[datetime]<2,>=1.0.0
+  Downloading typepy-1.1.4-py3-none-any.whl (30 kB)
+Requirement already satisfied: setuptools>=38.3.0 in ./venv/lib/python3.8/site-packages (from DateTimeRange==1.0.0->-r requirements.txt (line 10)) (54.1.2)
+Collecting pyparsing!=2.0.4,!=2.1.2,!=2.1.6,>=2.0.1
+  Downloading pyparsing-2.4.7-py2.py3-none-any.whl (67 kB)
+     |████████████████████████████████| 67 kB 5.6 MB/s 
+Collecting kiwisolver>=1.0.1
+  Downloading kiwisolver-1.3.1-cp38-cp38-macosx_10_9_x86_64.whl (61 kB)
+     |████████████████████████████████| 61 kB 203 kB/s 
+Collecting cycler>=0.10
+  Downloading cycler-0.10.0-py2.py3-none-any.whl (6.5 kB)
+Collecting idna<3,>=2.5
+  Downloading idna-2.10-py2.py3-none-any.whl (58 kB)
+     |████████████████████████████████| 58 kB 3.1 MB/s 
+Collecting chardet<4,>=3.0.2
+  Downloading chardet-3.0.4-py2.py3-none-any.whl (133 kB)
+     |████████████████████████████████| 133 kB 7.8 MB/s 
+Collecting certifi>=2017.4.17
+  Downloading certifi-2020.12.5-py2.py3-none-any.whl (147 kB)
+     |████████████████████████████████| 147 kB 10.5 MB/s 
+Collecting urllib3!=1.25.0,!=1.25.1,<1.26,>=1.21.1
+  Downloading urllib3-1.25.11-py2.py3-none-any.whl (127 kB)
+     |████████████████████████████████| 127 kB 10.3 MB/s 
+Collecting soupsieve>1.2
+  Downloading soupsieve-2.2.1-py3-none-any.whl (33 kB)
+Collecting webencodings
+  Downloading webencodings-0.5.1-py2.py3-none-any.whl (11 kB)
+Collecting importlib-metadata>=3.6
+  Downloading importlib_metadata-3.10.0-py3-none-any.whl (14 kB)
+Collecting zipp>=0.5
+  Downloading zipp-3.4.1-py3-none-any.whl (5.2 kB)
+Collecting packaging
+  Downloading packaging-20.9-py2.py3-none-any.whl (40 kB)
+     |████████████████████████████████| 40 kB 10.5 MB/s 
+Collecting mbstrdecoder<2,>=1.0.0
+  Downloading mbstrdecoder-1.0.1-py3-none-any.whl (7.8 kB)
+Building wheels for collected packages: astroquery, requests-futures
+  Building wheel for astroquery (setup.py) ... done
+  Created wheel for astroquery: filename=astroquery-0.4-py3-none-any.whl size=3582508 sha256=2f04f604436656ea948382e139895c0ceb8195abc2d060f1673efeeb1a84053e
+  Stored in directory: /Users/linnboldtc/Library/Caches/pip/wheels/b9/a2/d2/05f280307d70dacb24eec881e4dca8a31e9dcfc12466072ceb
+  Building wheel for requests-futures (setup.py) ... done
+  Created wheel for requests-futures: filename=requests_futures-1.0.0-py3-none-any.whl size=7013 sha256=7e9364328b29cca4c5942054bdec18d9bf59c77d8cb0db811376ee62d24604c1
+  Stored in directory: /Users/linnboldtc/Library/Caches/pip/wheels/ae/8d/24/ab782da8390bb118f413a4a6cb10e10802f9323fa2ea3b1698
+Successfully built astroquery requests-futures
+Installing collected packages: pyparsing, chardet, zipp, six, packaging, mbstrdecoder, webencodings, urllib3, typepy, soupsieve, pytz, python-dateutil, numpy, importlib-metadata, idna, certifi, requests, kiwisolver, keyring, html5lib, cycler, beautifulsoup4, astropy, XlsxWriter, scipy, requests-futures, pandas, matplotlib, DateTimeRange, astroquery, astroplan
+Successfully installed DateTimeRange-1.0.0 XlsxWriter-1.2.9 astroplan-0.6 astropy-4.0 astroquery-0.4 beautifulsoup4-4.9.3 certifi-2020.12.5 chardet-3.0.4 cycler-0.10.0 html5lib-1.1 idna-2.10 importlib-metadata-3.10.0 keyring-23.0.1 kiwisolver-1.3.1 matplotlib-3.2.2 mbstrdecoder-1.0.1 numpy-1.18.5 packaging-20.9 pandas-1.0.5 pyparsing-2.4.7 python-dateutil-2.8.1 pytz-2021.1 requests-2.24.0 requests-futures-1.0.0 scipy-1.6.2 six-1.15.0 soupsieve-2.2.1 typepy-1.1.4 urllib3-1.25.11 webencodings-0.5.1 zipp-3.4.1
+(venv) (base) linnboldtc@phy-trefor python % mkdir Plots
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py
+Downloading https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat
+|===================================================================| 1.3k/1.3k (100.00%)         0s
+*** Welcome to the CRIRES+ Observation Planner ***
+Downloading http://data.astropy.org/coordinates/sites.json
+|===================================================================|  26k/ 26k (100.00%)         0s
+Traceback (most recent call last):
+  File "./Transit_List.py", line 80, in <module>
+    from tqdm import tqdm
+ModuleNotFoundError: No module named 'tqdm'
+(venv) (base) linnboldtc@phy-trefor python % pip install tqdm
+Collecting tqdm
+  Downloading tqdm-4.60.0-py2.py3-none-any.whl (75 kB)
+     |████████████████████████████████| 75 kB 2.7 MB/s 
+Installing collected packages: tqdm
+Successfully installed tqdm-4.60.0
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py
+*** Welcome to the CRIRES+ Observation Planner ***
+Connected to http://exoplanetarchive.ipac.caltech.edu/
+
+
+Choose one of the following options:
+ 1: Run full transit calculation
+ 2: Run call ETC part for a list of transits
+ 3: Run single transit planning
+ 4: Run single target planning
+ 5: Plotting data of some result file
+Enter number: 1
+
+Enter start date like 2020-06-01 or press enter to use todays date 2021-05-05
+
+Enter number of days to compute transits for 5
+
+Do you want to call the ETC calculator to process the results S/N ratio? (WARNING : Only works with stable internet connection!) y/n y
+*** Running full transit analysis for transits between 2021-05-05 and 2021-05-10 ***
+Found 101 planets in Nasa Archive with Transit data
+Launched Processes: 100%|████████████████████████████████████████████| 101/101 [00:00<00:00, 1260.34it/s]
+Collected Processes:   0%|                                                       | 0/101 [00:00<?, ?it/s]*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+Downloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.allDownloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.allDownloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.allDownloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.allDownloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.allDownloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.allDownloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.allDownloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.all [Done]
+ [Done]
+ [Done]
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+ [Done]
+Collected Processes:   1%|▍                                              | 1/101 [00:19<33:11, 19.91s/it]
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+ [Done]
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+ [Done]
+ [Done]
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+ [Done]
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+WARNING: OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+ [astroplan.utils]
+WARNING:astropy:OldEarthOrientationDataWarning: For best precision (on the order of arcseconds), you must download an up-to-date IERS Bulletin A table. To do so, run:
+
+>>> from astroplan import download_IERS_A
+>>> download_IERS_A()
+
+concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/Users/linnboldtc/opt/anaconda3/lib/python3.8/concurrent/futures/process.py", line 239, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/Transit_List.py", line 163, in parallel_func
+    eclipse.observability(
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/classes_methods/classes.py", line 479, in observability
+    ltt_bary = eclipse_times.light_travel_time(self.coordinates.coord)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/time/core.py", line 1226, in light_travel_time
+    gcrs_coo = itrs.transform_to(GCRS(obstime=self))
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/baseframe.py", line 1198, in transform_to
+    return trans(self, new_frame)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/transformations.py", line 1382, in __call__
+    curr_coord = t(curr_coord, curr_toframe)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/transformations.py", line 985, in __call__
+    return supcall(fromcoord, toframe)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py", line 87, in itrs_to_cirs
+    pmat = cirs_to_itrs_mat(itrs_coo.obstime)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py", line 31, in cirs_to_itrs_mat
+    xp, yp = get_polar_motion(time)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/builtin_frames/utils.py", line 42, in get_polar_motion
+    xp, yp, status = iers_table.pm_xy(time, return_status=True)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/utils/iers/iers.py", line 333, in pm_xy
+    return self._interpolate(jd1, jd2, ['PM_x', 'PM_y'],
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/utils/iers/iers.py", line 354, in _interpolate
+    self._refresh_table_as_needed(mjd)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/utils/iers/iers.py", line 719, in _refresh_table_as_needed
+    max_input_mjd = np.max(mjd)
+  File "<__array_function__ internals>", line 5, in amax
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/numpy/core/fromnumeric.py", line 2667, in amax
+    return _wrapreduction(a, np.maximum, 'max', axis, None, out,
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/numpy/core/fromnumeric.py", line 90, in _wrapreduction
+    return ufunc.reduce(obj, axis, dtype, out, **passkwargs)
+ValueError: zero-size array to reduction operation maximum which has no identity
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "./Transit_List.py", line 358, in <module>
+    full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
+  File "./Transit_List.py", line 215, in full_transit_calculation
+    result = future.result()
+  File "/Users/linnboldtc/opt/anaconda3/lib/python3.8/concurrent/futures/_base.py", line 432, in result
+    return self.__get_result()
+  File "/Users/linnboldtc/opt/anaconda3/lib/python3.8/concurrent/futures/_base.py", line 388, in __get_result
+    raise self._exception
+ValueError: zero-size array to reduction operation maximum which has no identity
+(venv) (base) linnboldtc@phy-trefor python % open .
+(venv) (base) linnboldtc@phy-trefor python % from astroplan import download_IERS_A
+from: can't read /var/mail/astroplan
+(venv) (base) linnboldtc@phy-trefor python % ipython3
+/Users/linnboldtc/opt/anaconda3/lib/python3.8/site-packages/IPython/core/interactiveshell.py:936: UserWarning: Attempting to work in a virtualenv. If you encounter problems, please install IPython inside the virtualenv.
+  warn("Attempting to work in a virtualenv. If you encounter problems, please "
+Python 3.8.3 (default, Jul  2 2020, 11:26:31) 
+Type 'copyright', 'credits' or 'license' for more information
+IPython 7.19.0 -- An enhanced Interactive Python. Type '?' for help.
+
+In [1]: from astroplan import download_IERS_A
+
+In [2]:  download_IERS_A()
+Downloading https://datacenter.iers.org/data/9/finals2000A.all
+|=======================================================================================================================| 3.3M/3.3M (100.00%)         0s
+
+In [3]: exit
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py                    
+Downloading ftp://cddis.gsfc.nasa.gov/pub/products/iers/finals2000A.all from https://datacenter.iers.org/data/9/finals2000A.all
+|=======================================================================================================================| 3.3M/3.3M (100.00%)         1s
+*** Welcome to the CRIRES+ Observation Planner ***
+Connected to http://exoplanetarchive.ipac.caltech.edu/
+
+
+Choose one of the following options:
+ 1: Run full transit calculation
+ 2: Run call ETC part for a list of transits
+ 3: Run single transit planning
+ 4: Run single target planning
+ 5: Plotting data of some result file
+Enter number: 1
+
+Enter start date like 2020-06-01 or press enter to use todays date 2021-05-05
+
+Enter number of days to compute transits for 5
+
+Do you want to call the ETC calculator to process the results S/N ratio? (WARNING : Only works with stable internet connection!) y/n y
+*** Running full transit analysis for transits between 2021-05-05 and 2021-05-10 ***
+Found 101 planets in Nasa Archive with Transit data
+Launched Processes: 100%|████████████████████████████████████████████████████████████████████████████████████████████████| 101/101 [00:00<00:00, 1369.96it/s]
+Collected Processes:   0%|                                                                                                           | 0/101 [00:00<?, ?it/s]*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+*** Welcome to the CRIRES+ Observation Planner ***
+Collected Processes:   0%|                                                                                                           | 0/101 [00:05<?, ?it/s]
+concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/Users/linnboldtc/opt/anaconda3/lib/python3.8/concurrent/futures/process.py", line 239, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/Transit_List.py", line 163, in parallel_func
+    eclipse.observability(
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/classes_methods/classes.py", line 479, in observability
+    ltt_bary = eclipse_times.light_travel_time(self.coordinates.coord)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/time/core.py", line 1226, in light_travel_time
+    gcrs_coo = itrs.transform_to(GCRS(obstime=self))
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/baseframe.py", line 1198, in transform_to
+    return trans(self, new_frame)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/transformations.py", line 1382, in __call__
+    curr_coord = t(curr_coord, curr_toframe)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/transformations.py", line 985, in __call__
+    return supcall(fromcoord, toframe)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py", line 87, in itrs_to_cirs
+    pmat = cirs_to_itrs_mat(itrs_coo.obstime)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py", line 31, in cirs_to_itrs_mat
+    xp, yp = get_polar_motion(time)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/coordinates/builtin_frames/utils.py", line 42, in get_polar_motion
+    xp, yp, status = iers_table.pm_xy(time, return_status=True)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/utils/iers/iers.py", line 333, in pm_xy
+    return self._interpolate(jd1, jd2, ['PM_x', 'PM_y'],
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/utils/iers/iers.py", line 354, in _interpolate
+    self._refresh_table_as_needed(mjd)
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/astropy/utils/iers/iers.py", line 719, in _refresh_table_as_needed
+    max_input_mjd = np.max(mjd)
+  File "<__array_function__ internals>", line 5, in amax
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/numpy/core/fromnumeric.py", line 2667, in amax
+    return _wrapreduction(a, np.maximum, 'max', axis, None, out,
+  File "/Users/linnboldtc/CRIRES-planning-tool/python/venv/lib/python3.8/site-packages/numpy/core/fromnumeric.py", line 90, in _wrapreduction
+    return ufunc.reduce(obj, axis, dtype, out, **passkwargs)
+ValueError: zero-size array to reduction operation maximum which has no identity
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "./Transit_List.py", line 358, in <module>
+    full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
+  File "./Transit_List.py", line 215, in full_transit_calculation
+    result = future.result()
+  File "/Users/linnboldtc/opt/anaconda3/lib/python3.8/concurrent/futures/_base.py", line 432, in result
+    return self.__get_result()
+  File "/Users/linnboldtc/opt/anaconda3/lib/python3.8/concurrent/futures/_base.py", line 388, in __get_result
+    raise self._exception
+ValueError: zero-size array to reduction operation maximum which has no identity
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py
+*** Welcome to the CRIRES+ Observation Planner ***
+Connected to http://exoplanetarchive.ipac.caltech.edu/
+
+
+Choose one of the following options:
+ 1: Run full transit calculation
+ 2: Run call ETC part for a list of transits
+ 3: Run single transit planning
+ 4: Run single target planning
+ 5: Plotting data of some result file
+Enter number: 2
+
+Enter date like 2020-05-28 of the file of transit data you want to use 2021-05-05
+
+Enter timespan in days to the appropriate file 5
+
+Do you want to load file : Eclipse_events_processed_2021-05-05_5d.pkl to feed to ETC? [y,n]n
+
+Enter filename with data to plot:  exit
+Traceback (most recent call last):
+  File "./Transit_List.py", line 382, in <module>
+    eclipses_list = call_etc_for_list_of_transits(date, max_delta_days, filename)
+  File "./Transit_List.py", line 225, in call_etc_for_list_of_transits
+    date = datetime.date.fromisoformat(date)
+TypeError: fromisoformat: argument must be str
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py
+*** Welcome to the CRIRES+ Observation Planner ***
+Connected to http://exoplanetarchive.ipac.caltech.edu/
+
+
+Choose one of the following options:
+ 1: Run full transit calculation
+ 2: Run call ETC part for a list of transits
+ 3: Run single transit planning
+ 4: Run single target planning
+ 5: Plotting data of some result file
+Enter number: 3
+
+Enter start date like 2020-06-01 or press enter to use todays date 2021-05-05
+
+Enter number of days to compute transits for 5
+
+Enter name like KELT-10 b of planet you want check observability KELT-10 b
+Traceback (most recent call last):
+  File "./Transit_List.py", line 408, in <module>
+    date, max_delta_days, name, constraints, eclipses_list
+NameError: name 'eclipses_list' is not defined
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py
+*** Welcome to the CRIRES+ Observation Planner ***
+Connected to http://exoplanetarchive.ipac.caltech.edu/
+
+
+Choose one of the following options:
+ 1: Run full transit calculation
+ 2: Run call ETC part for a list of transits
+ 3: Run single transit planning
+ 4: Run single target planning
+ 5: Plotting data of some result file
+Enter number: 4
+Coming soon
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py
+*** Welcome to the CRIRES+ Observation Planner ***
+Connected to http://exoplanetarchive.ipac.caltech.edu/
+
+
+Choose one of the following options:
+ 1: Run full transit calculation
+ 2: Run call ETC part for a list of transits
+ 3: Run single transit planning
+ 4: Run single target planning
+ 5: Plotting data of some result file
+Enter number: 5
+
+
+Choose one of the following options:
+ 1: Plot candidates over full period
+ 2: Plot single night of (mutual) target(s)
+ 3: Get target finder image 
+Enter number: 1
+
+Enter filename with data to plot:  [only works with non customized file names]exit
+Traceback (most recent call last):
+  File "./Transit_List.py", line 519, in <module>
+    d = datetime.date.fromisoformat(filename.split("_")[-2])
+IndexError: list index out of range
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py
+*** Welcome to the CRIRES+ Observation Planner ***
+Connected to http://exoplanetarchive.ipac.caltech.edu/
+
+
+Choose one of the following options:
+ 1: Run full transit calculation
+ 2: Run call ETC part for a list of transits
+ 3: Run single transit planning
+ 4: Run single target planning
+ 5: Plotting data of some result file
+Enter number: 5
+
+
+Choose one of the following options:
+ 1: Plot candidates over full period
+ 2: Plot single night of (mutual) target(s)
+ 3: Get target finder image 
+Enter number: 2
+
+Enter filename with data to plot:  [only works with non customized file names]exit
+Traceback (most recent call last):
+  File "./Transit_List.py", line 519, in <module>
+    d = datetime.date.fromisoformat(filename.split("_")[-2])
+IndexError: list index out of range
+(venv) (base) linnboldtc@phy-trefor python % ./Transit_List.py
+*** Welcome to the CRIRES+ Observation Planner ***
+Connected to http://exoplanetarchive.ipac.caltech.edu/
+
+
+Choose one of the following options:
+ 1: Run full transit calculation
+ 2: Run call ETC part for a list of transits
+ 3: Run single transit planning
+ 4: Run single target planning
+ 5: Plotting data of some result file
+Enter number: 5
+
+
+Choose one of the following options:
+ 1: Plot candidates over full period
+ 2: Plot single night of (mutual) target(s)
+ 3: Get target finder image 
+Enter number: 3
+
+Write the name of the target you want to plot KELT-10 B
+Downloading https://skyview.gsfc.nasa.gov/tempspace/fits/skv16049880636344.fits
+|=======================================================================================================================| 374k/374k (100.00%)         0s
+exit
+^D
+∂∂∂∂∂∂∂∂∂∂∂∂∂
+
+
+
+(venv) (base) linnboldtc@phy-trefor python % exit
+
+[Processen slutförd]
+
