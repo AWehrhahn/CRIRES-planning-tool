@@ -608,6 +608,9 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
 
         with open(join(path, filename), "w") as f:
             df_gen1.to_csv(f, index=False)
+            file = filename.split(".")[0]
+            filename = file + "_eclipses.csv"
+        with open(join(path, filename), "w") as f:    
             df_frame1_sorted.to_csv(f)
         print(f"Data written to {filename}")
 
