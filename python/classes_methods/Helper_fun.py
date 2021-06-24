@@ -603,11 +603,15 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
             Max_Delta_days = "unknown"
             filename = f"Eclipse_events_processed_{d}_{Max_Delta_days}d.csv"
         else:
-            file = filename.split(".")[0]
+            file = filename.rsplit(".", 1)[0]
             filename = file + ".csv"
+
+        # We want to write it to 2 different files
+        filename2 = filename.rsplit(".", 1)[0] + "_2.csv"
 
         with open(join(path, filename), "w") as f:
             df_gen1.to_csv(f, index=False)
+        with open(join(path, filename2), "w") as f:
             df_frame1_sorted.to_csv(f)
         print(f"Data written to {filename}")
 
