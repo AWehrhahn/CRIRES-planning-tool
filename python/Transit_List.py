@@ -67,10 +67,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import requests
-from astroplan import Observer, download_IERS_A, get_IERS_A_or_workaround
-from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_moon, get_sun
+from astroplan import Observer
 from astropy.time import Time
-from astropy.utils import iers
 from astropy.utils.iers import IERS_Auto
 from astropy.visualization import astropy_mpl_style, quantity_support
 from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
