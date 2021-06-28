@@ -1,8 +1,8 @@
 from astroplan import download_IERS_A
-import classes_methods.Helper_fun as fun
-from Transit_List import (etc_calculator, full_transit_calculation,
+import crires_planning_tool.classes_methods.Helper_fun as fun
+from crires_planning_tool.Transit_List import (etc_calculator, full_transit_calculation,
                           get_default_constraints, single_transit_calculation)
-from classes_methods.obsob import estimate_snr
+from crires_planning_tool.classes_methods.obsob import estimate_snr
 # download_IERS_A()
 
 # TODO: Optimization
