@@ -22,6 +22,7 @@ constraints = get_default_constraints()
 eclipse = single_transit_calculation(date, max_delta_days, name, constraints)
 eclipse = estimate_snr([eclipse], minimum_snr=100)[0]
 snr = [obs["snr_median"] for obs in eclipse.eclipse_observable]
+eclipses_list = [eclipse]
 
 # # With the ETC calculation
 # # Note that the snr for the whole transit is snr_median * n_exposures_possible
@@ -30,9 +31,12 @@ snr = [obs["snr_median"] for obs in eclipse.eclipse_observable]
 # snr_etc = [obs["snr_median"] * obs["n_exposures_possible"] for obs in eclipse_etc.eclipse_observable]
 
 # For all systems
-eclipses_list = full_transit_calculation(date, max_delta_days, constraints)
-eclipses_list = estimate_snr(eclipses_list, minimum_snr=100)
+# eclipses_list = full_transit_calculation(date, max_delta_days, constraints)
+# eclipses_list = estimate_snr(eclipses_list, minimum_snr=100)
 # eclipses_list = etc_calculator(eclipses_list)
-fun.save_pickled("eclipses_list.pkl", eclipses_list)
+# fun.save_pickled("eclipses_list.pkl", eclipses_list)
+
+ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
+            eclipses_list, "eclipses.csv", write_to_csv=1)
 
 pass
