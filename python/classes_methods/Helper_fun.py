@@ -29,8 +29,7 @@ import xlsxwriter
 from astroplan import FixedTarget, Observer, moon_phase_angle
 from astroplan.plots import plot_finder_image
 from astropy import units as u
-from astropy.coordinates import (AltAz, EarthLocation, SkyCoord, get_moon,
-                                 get_sun)
+from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_moon, get_sun
 from astropy.time import Time
 from astropy.visualization import astropy_mpl_style, quantity_support
 from datetimerange import DateTimeRange
@@ -45,6 +44,7 @@ quantity_support()
 """ Location and UTC offset Paranal """
 paranal = Observer.at_site("paranal", timezone="Chile/Continental")
 logger = logging.getLogger(__name__)
+
 
 def etc_calculator_texp(obs_obj, obs_time, snr=100):
     """
@@ -162,7 +162,7 @@ def etc_calculator_snr(obs_obj, obs_time, ndit, dit):
     etc = EtcForm(inputtype="ndit-Templ", instrument="crires")
     gsmag = obs_obj.star_jmag
     if gsmag < 9.3 * u.mag:
-        gsmag = 9.3  * u.mag # Check again why that one is
+        gsmag = 9.3 * u.mag  # Check again why that one is
     moon_target_sep, moon_phase, airmass, _ = airmass_moon_sep_obj_altaz(
         obs_obj, obs_time
     )  # add moon_target_sep
@@ -235,7 +235,6 @@ def extract_out_data(outputs):
     return SN_data
 
 
-
 def airmass_moon_sep_obj_altaz(obs_obj, obs_time, location=paranal.location):
     """
         This function calculates the moon target separation, moon phase (moon sun separation), airmass factor and local coordinates to observe
@@ -298,7 +297,8 @@ def load_pickled(filename):
 
     with open(join(path, filename), "rb") as f:
         return pickle.load(f)[0]
-            
+
+
 def save_pickled(filename, *args):
     """
         Simple function to store class objects or list of class objects ''Objects'' as .pkl file under ''filename''.
@@ -465,17 +465,13 @@ def snr_estimate_nexposures(eclipse, planet, snr=100):
 
     """ Checking if eclipse has already been processed """
 
-    logging.info(
-        f"{planet.name} gets fed to ETC calculator for best observations"
-    )
+    logging.info(f"{planet.name} gets fed to ETC calculator for best observations")
 
     obs_time = eclipse["eclipse_mid"]["time"]
     transit_dur = planet.transit_duration.to_value(u.second)
     # for different S/N ratio add argument 'snr'= , to every Etc_calculator_Texp function
     # obtimising NDIT for each single exposure with S/N min = 100 in seconds
-    exposure_time, _, _, output, _ = etc_calculator_texp(
-        planet, obs_time, snr=snr
-    )  
+    exposure_time, _, _, output, _ = etc_calculator_texp(planet, obs_time, snr=snr)
 
     SN_data = extract_out_data(output)
     median_SN, min_SN, max_SN = calculate_snr_ratio(SN_data)
@@ -514,88 +510,71 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
             Ranking of the Transits according to (n_exposures_possible)**2 * (number of Transit in computed timespan).
 
     """
-    frame1 = []
-
+    frame = []
     general1 = []
     ranking = []
     num_trans = []
 
-    if type(eclipses_List) != list:
-        eclipses_List = [eclipses_List]
-
     for planet in eclipses_List:
-        if planet.eclipse_observable != []:
+        for eclipse in planet.eclipse_observable:
+            if eclipse["is_primary_eclipse_observable"]:
+                data = {
+                    "name": eclipse["name"],
+                    "time": eclipse["obs_time"],
+                    "transit_duration": eclipse["transit_duration"],
+                    "stellar_effective_temperature": eclipse[
+                        "stellar_effective_temperature"
+                    ].to_value("K"),
+                    "stellar_magnitude_j": eclipse["magnitude_j"].to_value("mag"),
+                    "n_exposures_possible": eclipse["n_exposures_possible"],
+                    "snr_median": eclipse["snr_median"],
+                    "snr_maximum": eclipse["snr_maximum"],
+                    "average_exposure_time": eclipse["average_exposure_time"],
+                }
+                for key in ["begin", "mid", "end"]:
+                    ekey = f"eclipse_{key}"
+                    data[f"time_{key}"] = eclipse[ekey]["time"]
+                    data[f"airmass_{key}"] = eclipse[ekey]["airmass"].to_value(1)
+                    data[f"az_{key}"] = eclipse[ekey]["az"].to_value("deg")
+                    data[f"alt_{key}"] = eclipse[ekey]["alt"].to_value("deg")
+                    data[f"moon_sep_{key}"] = eclipse[ekey]["moon sep"].to_value("deg")
+                    data[f"moon_phase_{key}"] = eclipse[ekey]["moon phase"].to_value("deg")
+                frame += [data]
 
-            for eclipse in planet.eclipse_observable:
-                eclipse1 = copy.deepcopy(eclipse)
-
-                ecl_data = []
-                
-                for key in ["eclipse_begin", "eclipse_mid", "eclipse_end"]:
-                    eclipse1[key]["az"] = np.float32(eclipse1[key]["az"])
-                    eclipse1[key]["alt"] = np.float32(eclipse1[key]["alt"])
-                    eclipse1[key]["moon sep"] = eclipse1[key]["moon sep"].to_value("deg")
-                    eclipse1[key]["moon phase"] = eclipse1[key]["moon phase"].to_value("deg")
-                    ecl_data.append(eclipse1[key])
-                    eclipse1.pop(key)
-                try:
-                    eclipse1.pop("List of Exposure Times")
-                except KeyError:
-                    pass
-                general1.append(eclipse1)
-                ecl_data = pd.DataFrame(ecl_data)
-                ecl_data.rename(
-                    index={
-                        0: f"eclipse_begin : {eclipse['name']}",
-                        1: f"eclipse_mid : {eclipse['name']}",
-                        2: f"eclipse_end : {eclipse['name']}",
-                    },
-                    inplace=True,
-                )
-                frame1.append(ecl_data)
-
-    if frame1 == []:
+    if len(frame) == 0:
         raise Warning(
             "There are no eclipses with at least 20 exposures to observe in the selected time frame."
         )
-    general1 = pd.DataFrame(general1)
-
-    if len(general1) > 1:
-        df_frame1 = pd.concat(frame1, axis=0)
-    else:
-        df_frame1 = frame1[0]
-    df_gen1 = general1
+    frame = pd.DataFrame(frame)
 
     for planet in eclipses_List:
-        df_per_plan = df_gen1.loc[
-            (df_gen1["name"] == planet.name)
-            & (df_gen1["n_exposures_possible"] >= 20)
+        df_per_plan = frame.loc[
+            (frame["name"] == planet.name) & (frame["n_exposures_possible"] >= 20)
         ]
         if len(df_per_plan) == 0:
             num_exp_mean = 0
         else:
-            num_exp_mean = df_per_plan["n_exposures_possible"].sum(
-                axis=0
-            ) / len(df_per_plan)
+            num_exp_mean = df_per_plan["n_exposures_possible"].sum(axis=0) / len(
+                df_per_plan
+            )
         ranking.append(((len(df_per_plan) * num_exp_mean ** 2), planet.name))
         num_trans.append((len(df_per_plan), planet.name))
 
-    df_frame1_sorted = df_frame1.sort_values(by="time")
+    df_frame1_sorted = frame.sort_values(by="time")
     df_gen_ranking = []
     df_gen_num_trans = []
     for elem, elem1 in zip(ranking, num_trans):
-        for name in df_gen1["name"]:
+        for name in frame["name"]:
             if elem[1] == name:
                 df_gen_ranking.append(elem[0])
                 df_gen_num_trans.append(elem1[0])
-    df_gen1["rank"] = df_gen_ranking
-    df_gen1["n_transits"] = df_gen_num_trans
-    df_gen1.sort_values("n_exposures_possible", inplace=True)
+    frame["rank"] = df_gen_ranking
+    frame["n_transits"] = df_gen_num_trans
+    frame.sort_values("n_exposures_possible", inplace=True)
 
-    df_gen1 = df_gen1.reindex(index=df_gen1.index[::-1])
-    df_gen1.reset_index(drop=True, inplace=True)
+    frame = frame.reindex(index=frame.index[::-1])
+    frame.reset_index(drop=True, inplace=True)
     ranking.sort()
-    df_gen1.drop(columns=["is_primary_eclipse_observable"], inplace=True)
     if write_to_csv == 1:
         path = join(dirname(__file__), "../csv_files")
         if filename == None:
@@ -606,16 +585,11 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
             file = filename.rsplit(".", 1)[0]
             filename = file + ".csv"
 
-        # We want to write it to 2 different files
-        filename2 = filename.rsplit(".", 1)[0] + "_2.csv"
-
         with open(join(path, filename), "w") as f:
-            df_gen1.to_csv(f, index=False)
-        with open(join(path, filename2), "w") as f:
-            df_frame1_sorted.to_csv(f)
+            frame.to_csv(f, index=False)
         print(f"Data written to {filename}")
 
-    return ranking, df_gen1, df_frame1, num_trans
+    return ranking, frame, frame, num_trans
 
 
 ##########################################################################################################
@@ -1447,9 +1421,7 @@ def postprocessing_events(d, Max_Delta_days, Nights, Eclipses_List):
                     if df_gen.loc[n]["n_exposures_possible"] < 20:
                         pass
                     else:
-                        final_ranking_per_night += df_gen.loc[n][
-                            "n_exposures_possible"
-                        ]
+                        final_ranking_per_night += df_gen.loc[n]["n_exposures_possible"]
         obs[0] = final_ranking_per_night
 
     ranking_dates.sort(key=lambda lis: lis[0], reverse=True)
