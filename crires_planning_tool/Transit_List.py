@@ -56,6 +56,8 @@ GitHub: jonaszubindu
 import datetime
 import logging
 import sys
+from concurrent.futures import (ProcessPoolExecutor, ThreadPoolExecutor,
+                                as_completed, wait)
 
 import astroplan
 import astropy.units as u
@@ -65,33 +67,18 @@ from astroplan import Observer
 from astropy.time import Time
 from astropy.utils.iers import IERS_Auto
 from astropy.visualization import astropy_mpl_style, quantity_support
-
-
 from tqdm import tqdm
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    ProcessPoolExecutor,
-    as_completed,
-    wait,
-)
+
 try:
-    from .classes_methods.classes import (
-        Eclipses,
-        Exoplanets,
-        Nights,
-        load_eclipses_from_file,
-    )
-    from .classes_methods.misc import misc
     from .classes_methods import Helper_fun as fun
+    from .classes_methods.classes import (Eclipses, Exoplanets, Nights,
+                                          load_eclipses_from_file)
+    from .classes_methods.misc import misc
 except ImportError:
-    from classes_methods.classes import (
-        Eclipses,
-        Exoplanets,
-        Nights,
-        load_eclipses_from_file,
-    )
-    from classes_methods.misc import misc
     from classes_methods import Helper_fun as fun
+    from classes_methods.classes import (Eclipses, Exoplanets, Nights,
+                                         load_eclipses_from_file)
+    from classes_methods.misc import misc
 
 # """ Update most recent IERS data """
 # iers.Conf.iers_auto_url.set(
@@ -153,7 +140,9 @@ def parallel_func(planet, max_delta_days, obs_time, nights_paranal, constraints)
     return eclipse
 
 
-def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_new", parallel=True):
+def full_transit_calculation(
+    date, max_delta_days, constraints, catalog="nexa_new", parallel=True
+):
 
     date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
 
@@ -180,8 +169,14 @@ def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_ne
     if not parallel:
         # Sequential version
         eclipses_list = []
-        for _, planet in tqdm(exoplanets.data_complete.iterrows(), desc="Planets", total=len(exoplanets.data_complete)):
-            result = parallel_func(planet, max_delta_days, obs_time, nights_paranal, constraints)
+        for _, planet in tqdm(
+            exoplanets.data_complete.iterrows(),
+            desc="Planets",
+            total=len(exoplanets.data_complete),
+        ):
+            result = parallel_func(
+                planet, max_delta_days, obs_time, nights_paranal, constraints
+            )
             if len(result.eclipse_observable) != 0:
                 eclipses_list += [result]
     else:
@@ -246,8 +241,12 @@ def etc_calculator(eclipses_list, minimum_snr=100):
 
     # DEBUG: Non Parrallel version
     for i, planet in tqdm(enumerate(eclipses_list), total=len(eclipses_list)):
-        for j, eclipse in tqdm(enumerate(planet.eclipse_observable), total=len(planet.eclipse_observable)):
-            eclipses_list[i].eclipse_observable[j] = fun.snr_estimate_nexposures(eclipse, planet, snr=minimum_snr)
+        for j, eclipse in tqdm(
+            enumerate(planet.eclipse_observable), total=len(planet.eclipse_observable)
+        ):
+            eclipses_list[i].eclipse_observable[j] = fun.snr_estimate_nexposures(
+                eclipse, planet, snr=minimum_snr
+            )
 
     # with ProcessPoolExecutor(max_workers=None) as executor:
     #     futures = {}
@@ -355,7 +354,9 @@ if __name__ == "__main__":
             msg="Do you want to call the ETC calculator to process the results S/N ratio? (WARNING : Only works with stable internet connection!) y/n "
         )
 
-        eclipses_list = full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
+        eclipses_list = full_transit_calculation(
+            date, max_delta_days, constraints, catalog=catalog
+        )
         date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
         filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
         fun.save_pickled(filename, eclipses_list)
@@ -382,16 +383,17 @@ if __name__ == "__main__":
 
         date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
         if filename is None:
-            filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
+            filename = (
+                f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
+            )
         eclipses_list = fun.load_pickled(filename)
         use_etc_calculator = "y"
-
 
     ##########################################################################################################
     """ ETC part to process list of observable candidates """
     if use_etc_calculator == "y":
         eclipses_list = etc_calculator(eclipses_list, minimum_snr=minimum_snr)
-        filename = 'Eclipse_events_processed_{}_{}d.pkl'.format(date, max_delta_days)
+        filename = "Eclipse_events_processed_{}_{}d.pkl".format(date, max_delta_days)
         fun.save_pickled(filename, eclipses_list)
 
     ##########################################################################################################

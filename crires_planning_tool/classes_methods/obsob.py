@@ -1,14 +1,14 @@
-import pandas as pd
-import numpy as np
 import datetime as dt
-from astropy.time import Time
+import os.path
+
+import numpy as np
+import pandas as pd
+import wget
 from astropy import coordinates
 from astropy import units as u
-import astroplan as ap
-# from astropy.constants import h, c, kb
-import wget
-import os.path
+from astropy.time import Time
 from tqdm import tqdm
+
 
 def jdcnv(date):
     return Time(date).jd

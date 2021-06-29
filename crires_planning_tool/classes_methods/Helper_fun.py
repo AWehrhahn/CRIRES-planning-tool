@@ -13,6 +13,7 @@ import datetime
 import logging
 import pickle
 from os.path import dirname, join
+
 import astropy
 import matplotlib as mpl
 import numpy as np
@@ -27,11 +28,11 @@ from datetimerange import DateTimeRange
 from matplotlib import pyplot as plt
 
 try:
-    from .etc_form import EtcForm
     from .classes import Nights
+    from .etc_form import EtcForm
 except ImportError:
-    from classes_methods.etc_form import EtcForm
     from classes_methods.classes import Nights
+    from classes_methods.etc_form import EtcForm
 
 plt.style.use(astropy_mpl_style)
 quantity_support()
