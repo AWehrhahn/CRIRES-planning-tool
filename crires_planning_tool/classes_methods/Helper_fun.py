@@ -12,11 +12,12 @@ import copy
 import datetime
 import logging
 import pickle
-from os.path import dirname, join
+from os.path import dirname, join, realpath
 
 import astropy
 import matplotlib as mpl
 import numpy as np
+from numpy.lib.type_check import real
 import pandas as pd
 from astroplan import FixedTarget, Observer
 from astroplan.plots import plot_finder_image
@@ -499,115 +500,60 @@ def snr_estimate_nexposures(eclipse, planet, snr=100):
 ##########################################################################################################
 
 
-def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
+def to_pandas(eclipses_List):
     """
-        Sorting and storing final data from ''Eclipses_List'' as csv files to ''filename'',
-        For now this only works with Eclipses, will include later functionality
-        to sort and store more general targets and maybe different functions to plot different kinds of data.
-        Might contain more types of output than it has now.
+        Store the data from the eclipses_list in a dataframe and/or a csv file
 
         Parameters
         ----------
-        Eclipses_List : list
+        eclipses_list : list
             Contains all the objects from class Eclipses that have been loaded.
 
-        filename : str, obtional
+        filename : str, optional
             If this function is called independent of the observability runs, include filename
             from which Eclipse data should get loaded for sorting and processing.
 
         Returns
         -------
-        ranking : list
-            Ranking of the Transits according to (n_exposures_possible)**2 * (number of Transit in computed timespan).
+        frame : pd.Dataframe
+            Data organized into a dataframe
 
     """
     frame = []
-    general1 = []
-    ranking = []
-    num_trans = []
-
     for planet in eclipses_List:
         for eclipse in planet.eclipse_observable:
-            if eclipse["is_primary_eclipse_observable"]:
-                data = {
-                    "name": eclipse["name"],
-                    "time": eclipse["obs_time"],
-                    "transit_duration": eclipse["transit_duration"],
-                    "stellar_effective_temperature": eclipse[
-                        "stellar_effective_temperature"
-                    ].to_value("K"),
-                    "stellar_magnitude_j": eclipse["magnitude_j"].to_value("mag"),
-                    "n_exposures_possible": eclipse["n_exposures_possible"],
-                    "snr_median": eclipse["snr_median"],
-                    "snr_maximum": eclipse["snr_maximum"],
-                    "average_exposure_time": eclipse["average_exposure_time"],
-                }
-                for key in ["begin", "mid", "end"]:
-                    ekey = f"eclipse_{key}"
-                    data[f"time_{key}"] = eclipse[ekey]["time"]
-                    data[f"airmass_{key}"] = eclipse[ekey]["airmass"].to_value(1)
-                    data[f"az_{key}"] = eclipse[ekey]["az"].to_value("deg")
-                    data[f"alt_{key}"] = eclipse[ekey]["alt"].to_value("deg")
-                    data[f"moon_sep_{key}"] = eclipse[ekey]["moon sep"].to_value("deg")
-                    data[f"moon_phase_{key}"] = eclipse[ekey]["moon phase"].to_value("deg")
-                frame += [data]
+            data = {
+                "name": eclipse["name"],
+                "time": eclipse["obs_time"],
+                "transit_duration": eclipse["transit_duration"],
+                "stellar_effective_temperature": eclipse[
+                    "stellar_effective_temperature"
+                ].to_value("K"),
+                "stellar_magnitude_j": eclipse["magnitude_j"].to_value("mag"),
+                "n_exposures_possible": eclipse["n_exposures_possible"],
+                "snr_median": eclipse["snr_median"],
+                "snr_maximum": eclipse["snr_maximum"],
+                "average_exposure_time": eclipse["average_exposure_time"],
+                "is_observable": eclipse["is_primary_eclipse_observable"],
+            }
+            for key in ["begin", "mid", "end"]:
+                ekey = f"eclipse_{key}"
+                data[f"time_{key}"] = eclipse[ekey]["time"]
+                data[f"airmass_{key}"] = eclipse[ekey]["airmass"].to_value(1)
+                data[f"az_{key}"] = eclipse[ekey]["az"].to_value("deg")
+                data[f"alt_{key}"] = eclipse[ekey]["alt"].to_value("deg")
+                data[f"moon_sep_{key}"] = eclipse[ekey]["moon sep"].to_value("deg")
+                data[f"moon_phase_{key}"] = eclipse[ekey]["moon phase"].to_value("deg")
+            frame += [data]
 
-    if len(frame) == 0:
-        raise Warning(
-            "There are no eclipses with at least 20 exposures to observe in the selected time frame."
-        )
     frame = pd.DataFrame(frame)
-
-    for planet in eclipses_List:
-        df_per_plan = frame.loc[
-            (frame["name"] == planet.name) & (frame["n_exposures_possible"] >= 20)
-        ]
-        if len(df_per_plan) == 0:
-            num_exp_mean = 0
-        else:
-            num_exp_mean = df_per_plan["n_exposures_possible"].sum(axis=0) / len(
-                df_per_plan
-            )
-        ranking.append(((len(df_per_plan) * num_exp_mean ** 2), planet.name))
-        num_trans.append((len(df_per_plan), planet.name))
-
-    df_gen_ranking = []
-    df_gen_num_trans = []
-    for elem, elem1 in zip(ranking, num_trans):
-        for name in frame["name"]:
-            if elem[1] == name:
-                df_gen_ranking.append(elem[0])
-                df_gen_num_trans.append(elem1[0])
-    frame["rank"] = df_gen_ranking
-    frame["n_transits"] = df_gen_num_trans
-    frame.sort_values("n_exposures_possible", inplace=True)
-
-    frame = frame.reindex(index=frame.index[::-1])
-    frame.reset_index(drop=True, inplace=True)
-    ranking.sort()
-    if write_to_csv == 1:
-        path = join(dirname(__file__), "../csv_files")
-        if filename == None:
-            d = datetime.date.today()
-            Max_Delta_days = "unknown"
-            filename = f"Eclipse_events_processed_{d}_{Max_Delta_days}d.csv"
-        else:
-            file = filename.rsplit(".", 1)[0]
-            filename = file + ".csv"
-
-        with open(join(path, filename), "w") as f:
-            frame.to_csv(f, index=False)
-        print(f"Data written to {filename}")
-
-    return ranking, frame, frame, num_trans
+    return frame
 
 
 ##########################################################################################################
 
 
-def plotting_transit_data(
-    d, max_delta_days, ranking, eclipses_list, nights, ranked_events=None
-):
+def plotting_transit_data(eclipses_list):
     """
         Plotting final data in ''Eclipses_List'' for the time span given in ''Nights'' or from date ''d'' for ''Max_Delta_days'' days.
         For now this only works for Eclipses, will include later functionality to plot general
@@ -616,188 +562,22 @@ def plotting_transit_data(
 
         Parameters
         ----------
-        Max_Delta_days : int
-            Date span to plot the data for.
-
-        ranking : list
-            Ranking of the Transits according to (n_exposures_possible)**2 * (number of Transit in computed timespan).
-
         Eclipses_List : list
             contains Eclipses class objects, which should be plotted.
-
-        Nights : class object
-            Class object containing night data for the range of days to plot the results.
-
-        Returns
-        -------
-        ranking : list
-            ranking in reversed order.
     """
 
-    """ Generates the class object Nights and calculates the nights for paranal between d and d_end """
-
-    if type(eclipses_list) != list:
+    if not isinstance(eclipses_list, list):
         eclipses_list = [eclipses_list]
 
-    nights = nights(d, max_delta_days, load_from_pickle=0)
-    d_orig = d
-    # delta_midnight = np.linspace(-12, 12, 1000)*u.hour
+    if not isinstance(eclipses_list, pd.DataFrame):
+        eclipses_list = to_pandas(eclipses_list)
 
-    if max_delta_days > 90:
-        for n in range(int(np.floor(max_delta_days / 90))):
-            plt.clf()
-            planet_names = []
-            fig = plt.figure(figsize=(120, 1.2 * len(ranking)))
-            ax = fig.add_subplot(111)
-            plt.style.use("seaborn-notebook")
-            mpl.rc("lines", linewidth=8)
-            y_range = range(len(ranking))
-            j = 0
-            for elem in ranking:
-                y_planet = [y_range[j], y_range[j]]
-                for planet in eclipses_list:
-                    if planet.name == elem[1]:
-                        tran_dur = np.float16(planet.transit_duration.to(u.hour))
-                        for ecl in planet.eclipse_observable:
-                            x_planet = [
-                                ecl["eclipse_begin"]["time"].value,
-                                ecl["eclipse_end"]["time"].value,
-                            ]
-                            if ecl["obs_time_error"] > 1 / 24:
-                                ax.plot(x_planet, y_planet, color="red")
-                            elif ecl["n_exposures_possible"] < 20:
-                                ax.plot(x_planet, y_planet, color="orange")
-                            else:
-                                ax.plot(x_planet, y_planet, color="blue")
-                planet_names.append("{} : {:.3}".format(elem[1], tran_dur))
-                j += 1
-
-            d = nights.date[n * 90]
-            d_end = nights.date[(n + 1) * 90]
-            lims = [d, d_end]
-
-            plt.xlim(lims)
-            plt.xticks(nights.date[n * 90 : (n + 1) * 90], fontsize=22)
-            plt.xticks(rotation=70)
-            plt.yticks(y_range, planet_names, fontsize=22)
-            plt.xlabel("Date", fontsize=24)
-            plt.ylabel("Planet name : \nTransit duration [h]", fontsize=24)
-
-            plt.tight_layout()
-            plt.show()
-
-            path = join(dirname(__file__), "../Plots")
-
-            fig.savefig(
-                f"{path}/{d_orig}_{max_delta_days}d_{d}-{d_end}-results.eps",
-                bbox_inches="tight",
-                dpi=100,
-            )
-
-        """ plotting the last part of unfull months """
-        n = int(np.floor(max_delta_days / 90))
-        d = nights.date[n * 90]
-        d_end = nights.date[-1]
-        lims = [d, d_end]
-
-        plt.clf()
-        planet_names = []
-        fig = plt.figure(
-            figsize=(1.5 * len(nights.date), 1.2 * len(ranking))
-        )  # figsize=(3*len(lims),1.4*len(ranking))
-        ax = fig.add_subplot(111)
-        plt.style.use("seaborn-notebook")
-        mpl.rc("lines", linewidth=8)
-        y_range = range(len(ranking))
-        j = 0
-        for elem in ranking:
-            y_planet = [y_range[j], y_range[j]]
-            for planet in eclipses_list:
-                if planet.name == elem[1]:
-                    tran_dur = np.float16(planet.transit_duration.to(u.hour))
-                    for ecl in planet.eclipse_observable:
-                        x_planet = [
-                            ecl["eclipse_begin"]["time"].value,
-                            ecl["eclipse_end"]["time"].value,
-                        ]
-                        if ecl["obs_time_error"] > 1 / 24:
-                            ax.plot(x_planet, y_planet, color="orange")
-                        elif ecl["n_exposures_possible"] < 20:
-                            ax.plot(x_planet, y_planet, color="red")
-                        else:
-                            ax.plot(x_planet, y_planet, color="blue")
-            planet_names.append("{} : {:.3}".format(elem[1], tran_dur))
-            j += 1
-
-        plt.xlim(lims)
-        plt.xticks(nights.date[n * 90 :], fontsize=22)
-        plt.xticks(rotation=70)
-        plt.yticks(y_range, planet_names, fontsize=22)
-        plt.xlabel("Date", fontsize=24)
-        plt.ylabel("Planet name : \nTransit duration [h]", fontsize=24)
-
-        plt.tight_layout()
-        plt.show()
-
-        path = join(dirname(__file__), "../Plots")
-
-        fig.savefig(
-            f"{path}/{d_orig}_{max_delta_days}d_{d}-{d_end}-results.eps",
-            bbox_inches="tight",
-            dpi=100,
-        )
-    else:
-        planet_names = []
-        # plt.clf()
-        fig = plt.figure(figsize=(1.5 * len(nights.date), 1.2 * len(ranking)))
-        ax = fig.add_subplot(111)
-        plt.style.use("seaborn-notebook")
-        mpl.rc("lines", linewidth=8)
-        y_range = range(len(ranking))
-        j = 0
-        for elem in ranking:
-            y_planet = [y_range[j], y_range[j]]
-            for planet in eclipses_list:
-                if planet.name == elem[1]:
-                    tran_dur = np.float16(planet.transit_duration.to(u.hour))
-                    for ecl in planet.eclipse_observable:
-                        x_planet = [
-                            ecl["eclipse_begin"]["time"].value,
-                            ecl["eclipse_end"]["time"].value,
-                        ]
-                        if ecl["obs_time_error"] > 1 / 24:
-                            ax.plot(x_planet, y_planet, color="red")
-                        elif ecl["n_exposures_possible"] < 20:
-                            ax.plot(x_planet, y_planet, color="orange")
-                        else:
-                            ax.plot(x_planet, y_planet, color="blue")
-            planet_names.append("{} : {:.3}".format(elem[1], tran_dur))
-            j += 1
-
-        d = nights.date[0]
-        d_end = nights.date[-1] + datetime.timedelta(days=1)
-        lims = [d, d_end]
-
-        # fig.legend(loc='upper left')
-        plt.xlim(lims)
-        plt.xticks(nights.date, fontsize=18)
-        plt.xticks(rotation=70)
-        plt.yticks(y_range, planet_names, fontsize=18)
-        plt.xlabel("Date", fontsize=24)
-        plt.ylabel("Planet name : \nTransit duration [h]", fontsize=18)
-        plt.tight_layout()
-        plt.show()
-
-        path = join(dirname(__file__), "../Plots")
-
-        fig.savefig(
-            f"{path}/{d_orig}_{max_delta_days}d_{d}-{d_end}-results.eps",
-            bbox_inches="tight",
-            dpi=100,
-        )
-
-    ranking.reverse()
-    return ranking
+    x = eclipses_list["time"].mjd.values
+    y = eclipses_list["n_exposures_possible"]
+    plt.plot(x, y)
+    plt.xlabel("Time")
+    plt.ylabel("#Exposures")
+    plt.show()
 
 
 ##########################################################################################################
@@ -1036,374 +816,26 @@ def plot_night(date, location, obs_obj, mix_types=1):
 
 ##########################################################################################################
 
-
-def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
-    """
-        Function to call for customized creation of excel files to store the Exoplanet candidate data.
-        This function can be changed in any suitable way to highlight or modify prefered cell formats.
-    
-        Parameters
-        ----------
-        filename : str
-            filename under which the xlsx file should be stored.
-    
-        df_gen : pandas DataFrame
-            dataframe containing the candidate data to store.
-    
-        df_frame : pandas DataFrame
-            dataframe containing the observation times to store.
-    
-        ranked_obs_events : pandas DataFrame
-            dataframe containing the ranked observation time events to store.
-    
-        Returns
-        -------
-        Stores xlsx file to csv_file folder.
-    
-    """
+def save_csv(filename : str, data: pd.DataFrame):
     path = join(dirname(__file__), "../csv_files")
-    filename = join(path, filename.split(".")[0] + ".xlsx")
+    filename = filename.split(".")[0] + ".csv"
+    filename = filename.format(path=path)
+    filename = realpath(filename)
 
-    if ranked_obs_events is not None:
-        rank = [oe[1][0]["rank"] for oe in ranked_obs_events]
-        df_gen["rank"] = rank
+    if not isinstance(data, pd.DataFrame):
+        data = to_pandas(data)
+    data.to_csv(filename)
 
-    df_gen.to_excel(filename)
+    print(f"Data written to {filename}")
 
-    # # Create a Pandas Excel writer using XlsxWriter as the engine.
-    # writer = pd.ExcelWriter(
-    #     join(path, filename.split(".")[0] + ".xlsx"), engine="xlsxwriter"
-    # )
+def save_excel(filename : str, data: pd.DataFrame):
+    path = join(dirname(__file__), "../csv_files")
+    filename = filename.split(".")[0] + ".xlsx"
+    filename = filename.format(path=path)
+    filename = realpath(filename)
 
-    # df_frame.reset_index(inplace=True)
+    if not isinstance(data, pd.DataFrame):
+        data = to_pandas(data)
+    data.to_excel(filename)
 
-    # workbook = writer.book
-    # # Set up a format
-    # # book_format = workbook.add_format(properties={'bold': True, 'font_color': 'red'})
-    # cell_format = workbook.add_format()
-
-    # cell_format.set_pattern(1)  # This is optional when using a solid fill.
-    # cell_format.set_bg_color("red")  # Highlights the background of the cell
-
-    # # Create a sheet
-    # worksheet1 = workbook.add_worksheet("Candidates")
-    # worksheet1.set_column(0, 1, 25)
-    # worksheet1.set_column(2, 12, 20)
-    # # worksheet2 = workbook.add_worksheet('Observations')
-    # # worksheet2.set_column(0, 12, 25)
-    # if type(ranked_obs_events) == pd.core.frame.DataFrame:
-    #     worksheet3 = workbook.add_worksheet("Ranked Observations")
-    #     worksheet3.set_column(0, 12, 25)
-    #     for col_num, header in enumerate(ranked_obs_events.keys()):
-    #         worksheet3.write(0, col_num, header)
-    # else:
-    #     pass
-
-    # # Write the headers
-    # for col_num, header in enumerate(df_gen.keys()):
-    #     worksheet1.write(0, col_num, header)
-
-    # # for col_num, header in enumerate(df_frame.keys()):
-    # #     worksheet2.write(0, col_num, header)
-
-    # obs_time = []
-    # # Save the data from the OrderedDict into the excel sheet
-    # for row_num, row_data in enumerate(df_gen.values):
-    #     for col_num, cell_data in enumerate(row_data):
-    #         if (col_num == 2 and cell_data > 1 / 24) or (
-    #             col_num == 6 and cell_data < 20
-    #         ):
-    #             obs_time.append(df_gen["obs_time"][row_num])
-    #             try:
-    #                 worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
-    #             except TypeError:
-    #                 if type(cell_data) == astropy.time.Time:
-    #                     cell_data = cell_data.value.isoformat()
-    #                 else:
-    #                     cell_data = cell_data.value
-    #                 worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
-    #         else:
-    #             try:
-    #                 worksheet1.write(row_num + 1, col_num, cell_data)
-    #             except TypeError:
-    #                 if type(cell_data) == astropy.time.Time:
-    #                     cell_data = cell_data.value.isoformat()
-    #                 else:
-    #                     cell_data = cell_data.value
-    #                 worksheet1.write(row_num + 1, col_num, cell_data)
-
-    # # # Save the data from the OrderedDict into the excel sheet
-    # # for row_num in range(int(len(df_frame.values) / 3)):
-    # #     row_num = row_num * 3
-    # #     obs_t = copy.deepcopy(df_frame['time'][row_num+1]) # to compare to transit mid time
-    # #     for col_num, _ in enumerate(df_frame.values[row_num]):
-    # #         tim_delta = [np.abs((obs_t - obs).value) == 0.0 for obs in obs_time]
-    # #         if any(tim_delta):
-    # #             try:
-    # #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num], cell_format)
-    # #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num], cell_format)
-    # #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num], cell_format)
-    # #             except TypeError:
-    # #                 if type(df_frame.values[row_num][1]) == astropy.time.core.Time:
-    # #                     df_frame.loc[row_num,'time'] = df_frame.values[row_num][col_num].value.isoformat()
-    # #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num +1][col_num].value.isoformat()
-    # #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num +2][col_num].value.isoformat()
-    # #                 else:
-    # #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value
-    # #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value
-    # #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value
-
-    # #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num], cell_format)
-    # #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num], cell_format)
-    # #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num], cell_format)
-
-    # #         else:
-    # #             try:
-    # #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num])
-    # #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num])
-    # #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num])
-    # #             except TypeError:
-    # #                 if type(df_frame.values[row_num][1]) == astropy.time.core.Time:
-    # #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value.isoformat()
-    # #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value.isoformat()
-    # #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value.isoformat()
-    # #                 else:
-    # #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value
-    # #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value
-    # #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value
-    # #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num])
-    # #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num])
-    # #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num])
-
-    # if type(ranked_obs_events) == pd.core.frame.DataFrame:
-    #     ranked_obs_events.reset_index(inplace=True)
-    #     ranked_obs_events.drop(columns="level_0", inplace=True)
-    #     for row_num in range(int(len(ranked_obs_events.values) / 3)):
-    #         row_num = row_num * 3
-    #         obs_dat = copy.deepcopy(ranked_obs_events["date"][row_num + 1])
-    #         obs_tim = copy.deepcopy(
-    #             ranked_obs_events["time"][row_num + 1]
-    #         )  # to compare to transit mid time
-    #         obs_t = Time(datetime.datetime.combine(obs_dat, obs_tim))
-    #         # print(obs_t)
-    #         for col_num, _ in enumerate(ranked_obs_events.values[row_num]):
-    #             tim_delta = [np.abs((obs_t - obs).value) < 1e-10 for obs in obs_time]
-    #             # print(tim_delta)
-    #             if any(tim_delta):
-
-    #                 if (
-    #                     type(ranked_obs_events.values[row_num][col_num])
-    #                     != datetime.date
-    #                     and type(ranked_obs_events.values[row_num][col_num])
-    #                     != datetime.time
-    #                 ):
-    #                     worksheet3.write(
-    #                         row_num + 1,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num][col_num],
-    #                         cell_format,
-    #                     )
-    #                     worksheet3.write(
-    #                         row_num + 2,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num + 1][col_num],
-    #                         cell_format,
-    #                     )
-    #                     worksheet3.write(
-    #                         row_num + 3,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num + 2][col_num],
-    #                         cell_format,
-    #                     )
-    #                 else:
-
-    #                     ranked_obs_events.loc[row_num, "date"] = ranked_obs_events.loc[
-    #                         row_num, "date"
-    #                     ].isoformat()
-    #                     ranked_obs_events.loc[
-    #                         row_num + 1, "date"
-    #                     ] = ranked_obs_events.loc[row_num + 1, "date"].isoformat()
-    #                     ranked_obs_events.loc[
-    #                         row_num + 2, "date"
-    #                     ] = ranked_obs_events.loc[row_num + 2, "date"].isoformat()
-
-    #                     ranked_obs_events.loc[row_num, "time"] = ranked_obs_events.loc[
-    #                         row_num, "time"
-    #                     ].isoformat()
-    #                     ranked_obs_events.loc[
-    #                         row_num + 1, "time"
-    #                     ] = ranked_obs_events.loc[row_num + 1, "time"].isoformat()
-    #                     ranked_obs_events.loc[
-    #                         row_num + 2, "time"
-    #                     ] = ranked_obs_events.loc[row_num + 2, "time"].isoformat()
-
-    #                     worksheet3.write(
-    #                         row_num + 1,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num][col_num],
-    #                         cell_format,
-    #                     )
-    #                     worksheet3.write(
-    #                         row_num + 2,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num + 1][col_num],
-    #                         cell_format,
-    #                     )
-    #                     worksheet3.write(
-    #                         row_num + 3,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num + 2][col_num],
-    #                         cell_format,
-    #                     )
-
-    #             else:
-    #                 if (
-    #                     type(ranked_obs_events.values[row_num][col_num])
-    #                     != datetime.date
-    #                     and type(ranked_obs_events.values[row_num][col_num])
-    #                     != datetime.time
-    #                 ):
-    #                     worksheet3.write(
-    #                         row_num + 1,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num][col_num],
-    #                     )
-    #                     worksheet3.write(
-    #                         row_num + 2,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num + 1][col_num],
-    #                     )
-    #                     worksheet3.write(
-    #                         row_num + 3,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num + 2][col_num],
-    #                     )
-    #                 else:
-
-    #                     ranked_obs_events.loc[row_num, "date"] = ranked_obs_events.loc[
-    #                         row_num, "date"
-    #                     ].isoformat()
-    #                     ranked_obs_events.loc[
-    #                         row_num + 1, "date"
-    #                     ] = ranked_obs_events.loc[row_num + 1, "date"].isoformat()
-    #                     ranked_obs_events.loc[
-    #                         row_num + 2, "date"
-    #                     ] = ranked_obs_events.loc[row_num + 2, "date"].isoformat()
-
-    #                     ranked_obs_events.loc[row_num, "time"] = ranked_obs_events.loc[
-    #                         row_num, "time"
-    #                     ].isoformat()
-    #                     ranked_obs_events.loc[
-    #                         row_num + 1, "time"
-    #                     ] = ranked_obs_events.loc[row_num + 1, "time"].isoformat()
-    #                     ranked_obs_events.loc[
-    #                         row_num + 2, "time"
-    #                     ] = ranked_obs_events.loc[row_num + 2, "time"].isoformat()
-
-    #                     worksheet3.write(
-    #                         row_num + 1,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num][col_num],
-    #                     )
-    #                     worksheet3.write(
-    #                         row_num + 2,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num + 1][col_num],
-    #                     )
-    #                     worksheet3.write(
-    #                         row_num + 3,
-    #                         col_num,
-    #                         ranked_obs_events.values[row_num + 2][col_num],
-    #                     )
-    # else:
-    #     pass
-    # # print(obs_time)
-    # # Close the workbook
-    # workbook.close()
-
-
-def postprocessing_events(date, max_delta_days, eclipse_list):
-    """
-    
-
-    Parameters
-    ----------
-    filename : string
-        filename of pickled file from which the data to process should get retrieved.
-
-    Raises
-    ------
-    Warning
-        raised if the comparison between nights and the number of mutual targets is illogical.
-
-    Returns
-    -------
-    ranking_dates : list
-        contains the ranked observation events, collections of nights in sequence with good targets.
-    
-    Obs_events : pandas DataFrame
-        dataframe containing the ranked events.
-
-    """
-    date, max_delta_days, dmax = parse_date(date, max_delta_days)
-    date = datetime.datetime.combine(date, datetime.time(0, 0, 0))
-    # Max_Delta_days = int(filename.split('_')[4][:-5])
-
-    nights = Nights(date, max_delta_days)
-
-    ranking, df_gen, df_frame, _ = data_sorting_and_storing(
-        eclipse_list, write_to_csv=0
-    )
-
-    df_frame_date = []
-    df_frame_time = []
-    for elem in df_frame["time"]:
-        df_frame_date += [elem.value.date()]
-        df_frame_time += [elem.value.time()]
-
-    df_frame.drop(columns=["time"], inplace=True)
-    df_frame.insert(0, "date", df_frame_date)
-    df_frame.insert(1, "time", df_frame_time)
-
-    ranking_dates = []
-    # TODO: this is another badly optimized loop
-    z = 0
-    for n, date in enumerate(nights.date):
-        date_sec = []
-        nights.date[n] = [date, 0]
-        for _, date_obj in df_frame.iterrows():
-            # date_obj.reset_index(inplace=True)
-            if date_obj["date"] == nights.date[n][0].date():
-                nights.date[n][1] = 1
-                if n > 0 and nights.date[n - 1][1] == 1:
-                    ranking_dates[-1][0] = ranking_dates[-1][0] + 1
-                    ranking_dates[-1][1].append(date_obj)
-                else:
-                    date_sec.append(date_obj)
-        if date_sec == []:
-            pass
-        else:
-            ranking_dates.append([len(date_sec), date_sec])
-            z += 1
-
-    for date_obj in ranking_dates:  # for each date
-        ran = []
-        for ecl in date_obj[1]:
-            start = ecl["time_begin"].to_datetime()
-            end = ecl["time_end"].to_datetime()
-            ran += [(ecl, DateTimeRange(start, end))]
-
-    for obs in ranking_dates:
-        final_ranking_per_night = 0
-        for single_obs in obs[1]:
-            if single_obs["n_exposures_possible"] >= 20:
-                final_ranking_per_night += df_gen.loc[n]["n_exposures_possible"]
-        obs[0] = final_ranking_per_night
-
-    # ranking_dates.sort(key=lambda lis: lis[0], reverse=True)
-
-    obs_events = [oe[1][0] for oe in ranking_dates]
-    obs_events = pd.concat(obs_events)
-
-    return ranking_dates, obs_events
-
+    print(f"Data written to {filename}")

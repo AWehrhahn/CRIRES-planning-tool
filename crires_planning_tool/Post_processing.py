@@ -5,10 +5,10 @@ from datetimerange import DateTimeRange
 
 try:
     from .classes_methods.classes import Nights, load_eclipses_from_file
-    from .classes_methods.Helper_fun import data_sorting_and_storing
+    from .classes_methods.Helper_fun import to_pandas
 except ImportError:
     from classes_methods.classes import Nights, load_eclipses_from_file
-    from classes_methods.Helper_fun import data_sorting_and_storing
+    from classes_methods.Helper_fun import to_pandas
 
 filename = input("pls give me a filename:")
 
@@ -19,7 +19,7 @@ Max_Delta_days = int(filename.split("_")[4][:-5])
 Nights = Nights(d, Max_Delta_days)
 
 Eclipses_List = load_eclipses_from_file(filename, Max_Delta_days)
-ranking, df_gen, df_frame = data_sorting_and_storing(Eclipses_List, write_to_csv=0)
+df_frame = to_pandas(Eclipses_List)
 
 
 df_frame_date = []

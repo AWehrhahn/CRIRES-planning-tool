@@ -36,10 +36,7 @@ eclipses_list = [eclipse]
 # eclipses_list = etc_calculator(eclipses_list)
 # fun.save_pickled("eclipses_list.pkl", eclipses_list)
 
-ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
-            eclipses_list, "eclipses.csv", write_to_csv=1)
-ranked_events, Obs_events = fun.postprocessing_events(
-            date, max_delta_days, eclipses_list
-        )
-fun.xlsx_writer("test.xlsx", df_gen, df_frame, ranked_obs_events=ranked_events)
-pass
+data = fun.to_pandas(eclipses_list)
+fun.save_csv("{path}/test.csv", data)
+fun.save_excel("{path}/test.xlsx", data)
+

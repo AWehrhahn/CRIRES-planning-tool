@@ -492,14 +492,10 @@ if __name__ == "__main__":
 
         date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
         filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
-
-        ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
-            data, filename, write_to_csv=1
-        )
-        ranked_events, Obs_events = fun.postprocessing_events(
-            date, max_delta_days, data
-        )
-        fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
+        filename = "{path}/" + filename
+        df_frame = fun.to_pandas(data)
+        fun.save_csv(filename, df_frame)
+        fun.save_excel(filename, df_frame)
 
     k2 = misc.user_menu(
         menu=(
@@ -527,20 +523,11 @@ if __name__ == "__main__":
 
     if k2 == 1 and k == 5:
         """ Plotting candidates over full period """
-        ranking, df_gen, df_frame, _ = fun.data_sorting_and_storing(
-            eclipses_list, write_to_csv=0
-        )
-        ranked_events, Obs_events = fun.postprocessing_events(
-            date, max_delta_days, eclipses_list
-        )
-        fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
-        ranking = fun.plotting_transit_data(
-            date, max_delta_days, ranking, eclipses_list, Nights, ranked_events
-        )
+        df_frame = fun.to_pandas(eclipses_list)
+        fun.save_excel(filename, df_frame)
+        fun.plotting_transit_data(eclipses_list)
     elif k2 == 1:
-        ranking = fun.plotting_transit_data(
-            date, max_delta_days, ranking, eclipses_list, Nights, ranked_events
-        )
+        fun.plotting_transit_data(eclipses_list)
 
     if k2 == 2:
         """ Plot single night of (mutual) target(s) """
