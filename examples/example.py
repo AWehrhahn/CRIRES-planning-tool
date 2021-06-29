@@ -41,4 +41,5 @@ ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
 ranked_events, Obs_events = fun.postprocessing_events(
             date, max_delta_days, eclipses_list
         )
+fun.xlsx_writer("test.xlsx", df_gen, df_frame, ranked_obs_events=ranked_events)
 pass

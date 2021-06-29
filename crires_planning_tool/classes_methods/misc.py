@@ -9,6 +9,7 @@ Contains functions to run the user menu and the interaction of user and tool.
 """
 import sys
 import warnings
+
 # try:
 # 	from termcolor import colored
 # 	do_color_term = True

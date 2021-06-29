@@ -102,7 +102,7 @@ for col_num, header in enumerate(df_frame.keys()):
     
 obs_time = []
 # Save the data from the OrderedDict into the excel sheet
-for row_num, row_data in enumerate(df_gen.values):
+for row_num, row_data in df_gen.iterrows():
     for col_num, cell_data in enumerate(row_data):
         if (col_num == 2 and cell_data > 1 / 24) or (col_num == 6 and cell_data < 20):
             obs_time.append(df_gen['obs time'][row_num])

@@ -1062,257 +1062,264 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
     
     """
     path = join(dirname(__file__), "../csv_files")
+    filename = join(path, filename.split(".")[0] + ".xlsx")
 
-    # Create a Pandas Excel writer using XlsxWriter as the engine.
-    writer = pd.ExcelWriter(
-        join(path, filename.split(".")[0] + ".xlsx"), engine="xlsxwriter"
-    )
+    if ranked_obs_events is not None:
+        rank = [oe[1][0]["rank"] for oe in ranked_obs_events]
+        df_gen["rank"] = rank
 
-    df_frame.reset_index(inplace=True)
+    df_gen.to_excel(filename)
 
-    workbook = writer.book
-    # Set up a format
-    # book_format = workbook.add_format(properties={'bold': True, 'font_color': 'red'})
-    cell_format = workbook.add_format()
+    # # Create a Pandas Excel writer using XlsxWriter as the engine.
+    # writer = pd.ExcelWriter(
+    #     join(path, filename.split(".")[0] + ".xlsx"), engine="xlsxwriter"
+    # )
 
-    cell_format.set_pattern(1)  # This is optional when using a solid fill.
-    cell_format.set_bg_color("red")  # Highlights the background of the cell
+    # df_frame.reset_index(inplace=True)
 
-    # Create a sheet
-    worksheet1 = workbook.add_worksheet("Candidates")
-    worksheet1.set_column(0, 1, 25)
-    worksheet1.set_column(2, 12, 20)
-    # worksheet2 = workbook.add_worksheet('Observations')
-    # worksheet2.set_column(0, 12, 25)
-    if type(ranked_obs_events) == pd.core.frame.DataFrame:
-        worksheet3 = workbook.add_worksheet("Ranked Observations")
-        worksheet3.set_column(0, 12, 25)
-        for col_num, header in enumerate(ranked_obs_events.keys()):
-            worksheet3.write(0, col_num, header)
-    else:
-        pass
+    # workbook = writer.book
+    # # Set up a format
+    # # book_format = workbook.add_format(properties={'bold': True, 'font_color': 'red'})
+    # cell_format = workbook.add_format()
 
-    # Write the headers
-    for col_num, header in enumerate(df_gen.keys()):
-        worksheet1.write(0, col_num, header)
+    # cell_format.set_pattern(1)  # This is optional when using a solid fill.
+    # cell_format.set_bg_color("red")  # Highlights the background of the cell
 
-    # for col_num, header in enumerate(df_frame.keys()):
-    #     worksheet2.write(0, col_num, header)
+    # # Create a sheet
+    # worksheet1 = workbook.add_worksheet("Candidates")
+    # worksheet1.set_column(0, 1, 25)
+    # worksheet1.set_column(2, 12, 20)
+    # # worksheet2 = workbook.add_worksheet('Observations')
+    # # worksheet2.set_column(0, 12, 25)
+    # if type(ranked_obs_events) == pd.core.frame.DataFrame:
+    #     worksheet3 = workbook.add_worksheet("Ranked Observations")
+    #     worksheet3.set_column(0, 12, 25)
+    #     for col_num, header in enumerate(ranked_obs_events.keys()):
+    #         worksheet3.write(0, col_num, header)
+    # else:
+    #     pass
 
-    obs_time = []
-    # Save the data from the OrderedDict into the excel sheet
-    for row_num, row_data in enumerate(df_gen.values):
-        for col_num, cell_data in enumerate(row_data):
-            if (col_num == 2 and cell_data > 1 / 24) or (
-                col_num == 6 and cell_data < 20
-            ):
-                obs_time.append(df_gen["obs_time"][row_num])
-                try:
-                    worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
-                except TypeError:
-                    if type(cell_data) == astropy.time.Time:
-                        cell_data = cell_data.value.isoformat()
-                    else:
-                        cell_data = cell_data.value
-                    worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
-            else:
-                try:
-                    worksheet1.write(row_num + 1, col_num, cell_data)
-                except TypeError:
-                    if type(cell_data) == astropy.time.Time:
-                        cell_data = cell_data.value.isoformat()
-                    else:
-                        cell_data = cell_data.value
-                    worksheet1.write(row_num + 1, col_num, cell_data)
+    # # Write the headers
+    # for col_num, header in enumerate(df_gen.keys()):
+    #     worksheet1.write(0, col_num, header)
 
+    # # for col_num, header in enumerate(df_frame.keys()):
+    # #     worksheet2.write(0, col_num, header)
+
+    # obs_time = []
     # # Save the data from the OrderedDict into the excel sheet
-    # for row_num in range(int(len(df_frame.values) / 3)):
-    #     row_num = row_num * 3
-    #     obs_t = copy.deepcopy(df_frame['time'][row_num+1]) # to compare to transit mid time
-    #     for col_num, _ in enumerate(df_frame.values[row_num]):
-    #         tim_delta = [np.abs((obs_t - obs).value) == 0.0 for obs in obs_time]
-    #         if any(tim_delta):
+    # for row_num, row_data in enumerate(df_gen.values):
+    #     for col_num, cell_data in enumerate(row_data):
+    #         if (col_num == 2 and cell_data > 1 / 24) or (
+    #             col_num == 6 and cell_data < 20
+    #         ):
+    #             obs_time.append(df_gen["obs_time"][row_num])
     #             try:
-    #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num], cell_format)
-    #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num], cell_format)
-    #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num], cell_format)
+    #                 worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
     #             except TypeError:
-    #                 if type(df_frame.values[row_num][1]) == astropy.time.core.Time:
-    #                     df_frame.loc[row_num,'time'] = df_frame.values[row_num][col_num].value.isoformat()
-    #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num +1][col_num].value.isoformat()
-    #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num +2][col_num].value.isoformat()
+    #                 if type(cell_data) == astropy.time.Time:
+    #                     cell_data = cell_data.value.isoformat()
     #                 else:
-    #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value
-    #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value
-    #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value
-
-    #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num], cell_format)
-    #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num], cell_format)
-    #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num], cell_format)
-
+    #                     cell_data = cell_data.value
+    #                 worksheet1.write(row_num + 1, col_num, cell_data, cell_format)
     #         else:
     #             try:
-    #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num])
-    #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num])
-    #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num])
+    #                 worksheet1.write(row_num + 1, col_num, cell_data)
     #             except TypeError:
-    #                 if type(df_frame.values[row_num][1]) == astropy.time.core.Time:
-    #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value.isoformat()
-    #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value.isoformat()
-    #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value.isoformat()
+    #                 if type(cell_data) == astropy.time.Time:
+    #                     cell_data = cell_data.value.isoformat()
     #                 else:
-    #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value
-    #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value
-    #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value
-    #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num])
-    #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num])
-    #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num])
+    #                     cell_data = cell_data.value
+    #                 worksheet1.write(row_num + 1, col_num, cell_data)
 
-    if type(ranked_obs_events) == pd.core.frame.DataFrame:
-        ranked_obs_events.reset_index(inplace=True)
-        ranked_obs_events.drop(columns="level_0", inplace=True)
-        for row_num in range(int(len(ranked_obs_events.values) / 3)):
-            row_num = row_num * 3
-            obs_dat = copy.deepcopy(ranked_obs_events["date"][row_num + 1])
-            obs_tim = copy.deepcopy(
-                ranked_obs_events["time"][row_num + 1]
-            )  # to compare to transit mid time
-            obs_t = Time(datetime.datetime.combine(obs_dat, obs_tim))
-            # print(obs_t)
-            for col_num, _ in enumerate(ranked_obs_events.values[row_num]):
-                tim_delta = [np.abs((obs_t - obs).value) < 1e-10 for obs in obs_time]
-                # print(tim_delta)
-                if any(tim_delta):
+    # # # Save the data from the OrderedDict into the excel sheet
+    # # for row_num in range(int(len(df_frame.values) / 3)):
+    # #     row_num = row_num * 3
+    # #     obs_t = copy.deepcopy(df_frame['time'][row_num+1]) # to compare to transit mid time
+    # #     for col_num, _ in enumerate(df_frame.values[row_num]):
+    # #         tim_delta = [np.abs((obs_t - obs).value) == 0.0 for obs in obs_time]
+    # #         if any(tim_delta):
+    # #             try:
+    # #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num], cell_format)
+    # #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num], cell_format)
+    # #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num], cell_format)
+    # #             except TypeError:
+    # #                 if type(df_frame.values[row_num][1]) == astropy.time.core.Time:
+    # #                     df_frame.loc[row_num,'time'] = df_frame.values[row_num][col_num].value.isoformat()
+    # #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num +1][col_num].value.isoformat()
+    # #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num +2][col_num].value.isoformat()
+    # #                 else:
+    # #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value
+    # #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value
+    # #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value
 
-                    if (
-                        type(ranked_obs_events.values[row_num][col_num])
-                        != datetime.date
-                        and type(ranked_obs_events.values[row_num][col_num])
-                        != datetime.time
-                    ):
-                        worksheet3.write(
-                            row_num + 1,
-                            col_num,
-                            ranked_obs_events.values[row_num][col_num],
-                            cell_format,
-                        )
-                        worksheet3.write(
-                            row_num + 2,
-                            col_num,
-                            ranked_obs_events.values[row_num + 1][col_num],
-                            cell_format,
-                        )
-                        worksheet3.write(
-                            row_num + 3,
-                            col_num,
-                            ranked_obs_events.values[row_num + 2][col_num],
-                            cell_format,
-                        )
-                    else:
+    # #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num], cell_format)
+    # #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num], cell_format)
+    # #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num], cell_format)
 
-                        ranked_obs_events.loc[row_num, "date"] = ranked_obs_events.loc[
-                            row_num, "date"
-                        ].isoformat()
-                        ranked_obs_events.loc[
-                            row_num + 1, "date"
-                        ] = ranked_obs_events.loc[row_num + 1, "date"].isoformat()
-                        ranked_obs_events.loc[
-                            row_num + 2, "date"
-                        ] = ranked_obs_events.loc[row_num + 2, "date"].isoformat()
+    # #         else:
+    # #             try:
+    # #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num])
+    # #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num])
+    # #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num])
+    # #             except TypeError:
+    # #                 if type(df_frame.values[row_num][1]) == astropy.time.core.Time:
+    # #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value.isoformat()
+    # #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value.isoformat()
+    # #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value.isoformat()
+    # #                 else:
+    # #                     df_frame.loc[row_num, 'time'] = df_frame.values[row_num][col_num].value
+    # #                     df_frame.loc[row_num + 1, 'time'] = df_frame.values[row_num + 1][col_num].value
+    # #                     df_frame.loc[row_num + 2, 'time'] = df_frame.values[row_num + 2][col_num].value
+    # #                 worksheet2.write(row_num + 1, col_num, df_frame.values[row_num][col_num])
+    # #                 worksheet2.write(row_num + 2, col_num, df_frame.values[row_num + 1][col_num])
+    # #                 worksheet2.write(row_num + 3, col_num, df_frame.values[row_num + 2][col_num])
 
-                        ranked_obs_events.loc[row_num, "time"] = ranked_obs_events.loc[
-                            row_num, "time"
-                        ].isoformat()
-                        ranked_obs_events.loc[
-                            row_num + 1, "time"
-                        ] = ranked_obs_events.loc[row_num + 1, "time"].isoformat()
-                        ranked_obs_events.loc[
-                            row_num + 2, "time"
-                        ] = ranked_obs_events.loc[row_num + 2, "time"].isoformat()
+    # if type(ranked_obs_events) == pd.core.frame.DataFrame:
+    #     ranked_obs_events.reset_index(inplace=True)
+    #     ranked_obs_events.drop(columns="level_0", inplace=True)
+    #     for row_num in range(int(len(ranked_obs_events.values) / 3)):
+    #         row_num = row_num * 3
+    #         obs_dat = copy.deepcopy(ranked_obs_events["date"][row_num + 1])
+    #         obs_tim = copy.deepcopy(
+    #             ranked_obs_events["time"][row_num + 1]
+    #         )  # to compare to transit mid time
+    #         obs_t = Time(datetime.datetime.combine(obs_dat, obs_tim))
+    #         # print(obs_t)
+    #         for col_num, _ in enumerate(ranked_obs_events.values[row_num]):
+    #             tim_delta = [np.abs((obs_t - obs).value) < 1e-10 for obs in obs_time]
+    #             # print(tim_delta)
+    #             if any(tim_delta):
 
-                        worksheet3.write(
-                            row_num + 1,
-                            col_num,
-                            ranked_obs_events.values[row_num][col_num],
-                            cell_format,
-                        )
-                        worksheet3.write(
-                            row_num + 2,
-                            col_num,
-                            ranked_obs_events.values[row_num + 1][col_num],
-                            cell_format,
-                        )
-                        worksheet3.write(
-                            row_num + 3,
-                            col_num,
-                            ranked_obs_events.values[row_num + 2][col_num],
-                            cell_format,
-                        )
+    #                 if (
+    #                     type(ranked_obs_events.values[row_num][col_num])
+    #                     != datetime.date
+    #                     and type(ranked_obs_events.values[row_num][col_num])
+    #                     != datetime.time
+    #                 ):
+    #                     worksheet3.write(
+    #                         row_num + 1,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num][col_num],
+    #                         cell_format,
+    #                     )
+    #                     worksheet3.write(
+    #                         row_num + 2,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num + 1][col_num],
+    #                         cell_format,
+    #                     )
+    #                     worksheet3.write(
+    #                         row_num + 3,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num + 2][col_num],
+    #                         cell_format,
+    #                     )
+    #                 else:
 
-                else:
-                    if (
-                        type(ranked_obs_events.values[row_num][col_num])
-                        != datetime.date
-                        and type(ranked_obs_events.values[row_num][col_num])
-                        != datetime.time
-                    ):
-                        worksheet3.write(
-                            row_num + 1,
-                            col_num,
-                            ranked_obs_events.values[row_num][col_num],
-                        )
-                        worksheet3.write(
-                            row_num + 2,
-                            col_num,
-                            ranked_obs_events.values[row_num + 1][col_num],
-                        )
-                        worksheet3.write(
-                            row_num + 3,
-                            col_num,
-                            ranked_obs_events.values[row_num + 2][col_num],
-                        )
-                    else:
+    #                     ranked_obs_events.loc[row_num, "date"] = ranked_obs_events.loc[
+    #                         row_num, "date"
+    #                     ].isoformat()
+    #                     ranked_obs_events.loc[
+    #                         row_num + 1, "date"
+    #                     ] = ranked_obs_events.loc[row_num + 1, "date"].isoformat()
+    #                     ranked_obs_events.loc[
+    #                         row_num + 2, "date"
+    #                     ] = ranked_obs_events.loc[row_num + 2, "date"].isoformat()
 
-                        ranked_obs_events.loc[row_num, "date"] = ranked_obs_events.loc[
-                            row_num, "date"
-                        ].isoformat()
-                        ranked_obs_events.loc[
-                            row_num + 1, "date"
-                        ] = ranked_obs_events.loc[row_num + 1, "date"].isoformat()
-                        ranked_obs_events.loc[
-                            row_num + 2, "date"
-                        ] = ranked_obs_events.loc[row_num + 2, "date"].isoformat()
+    #                     ranked_obs_events.loc[row_num, "time"] = ranked_obs_events.loc[
+    #                         row_num, "time"
+    #                     ].isoformat()
+    #                     ranked_obs_events.loc[
+    #                         row_num + 1, "time"
+    #                     ] = ranked_obs_events.loc[row_num + 1, "time"].isoformat()
+    #                     ranked_obs_events.loc[
+    #                         row_num + 2, "time"
+    #                     ] = ranked_obs_events.loc[row_num + 2, "time"].isoformat()
 
-                        ranked_obs_events.loc[row_num, "time"] = ranked_obs_events.loc[
-                            row_num, "time"
-                        ].isoformat()
-                        ranked_obs_events.loc[
-                            row_num + 1, "time"
-                        ] = ranked_obs_events.loc[row_num + 1, "time"].isoformat()
-                        ranked_obs_events.loc[
-                            row_num + 2, "time"
-                        ] = ranked_obs_events.loc[row_num + 2, "time"].isoformat()
+    #                     worksheet3.write(
+    #                         row_num + 1,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num][col_num],
+    #                         cell_format,
+    #                     )
+    #                     worksheet3.write(
+    #                         row_num + 2,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num + 1][col_num],
+    #                         cell_format,
+    #                     )
+    #                     worksheet3.write(
+    #                         row_num + 3,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num + 2][col_num],
+    #                         cell_format,
+    #                     )
 
-                        worksheet3.write(
-                            row_num + 1,
-                            col_num,
-                            ranked_obs_events.values[row_num][col_num],
-                        )
-                        worksheet3.write(
-                            row_num + 2,
-                            col_num,
-                            ranked_obs_events.values[row_num + 1][col_num],
-                        )
-                        worksheet3.write(
-                            row_num + 3,
-                            col_num,
-                            ranked_obs_events.values[row_num + 2][col_num],
-                        )
-    else:
-        pass
-    # print(obs_time)
-    # Close the workbook
-    workbook.close()
+    #             else:
+    #                 if (
+    #                     type(ranked_obs_events.values[row_num][col_num])
+    #                     != datetime.date
+    #                     and type(ranked_obs_events.values[row_num][col_num])
+    #                     != datetime.time
+    #                 ):
+    #                     worksheet3.write(
+    #                         row_num + 1,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num][col_num],
+    #                     )
+    #                     worksheet3.write(
+    #                         row_num + 2,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num + 1][col_num],
+    #                     )
+    #                     worksheet3.write(
+    #                         row_num + 3,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num + 2][col_num],
+    #                     )
+    #                 else:
+
+    #                     ranked_obs_events.loc[row_num, "date"] = ranked_obs_events.loc[
+    #                         row_num, "date"
+    #                     ].isoformat()
+    #                     ranked_obs_events.loc[
+    #                         row_num + 1, "date"
+    #                     ] = ranked_obs_events.loc[row_num + 1, "date"].isoformat()
+    #                     ranked_obs_events.loc[
+    #                         row_num + 2, "date"
+    #                     ] = ranked_obs_events.loc[row_num + 2, "date"].isoformat()
+
+    #                     ranked_obs_events.loc[row_num, "time"] = ranked_obs_events.loc[
+    #                         row_num, "time"
+    #                     ].isoformat()
+    #                     ranked_obs_events.loc[
+    #                         row_num + 1, "time"
+    #                     ] = ranked_obs_events.loc[row_num + 1, "time"].isoformat()
+    #                     ranked_obs_events.loc[
+    #                         row_num + 2, "time"
+    #                     ] = ranked_obs_events.loc[row_num + 2, "time"].isoformat()
+
+    #                     worksheet3.write(
+    #                         row_num + 1,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num][col_num],
+    #                     )
+    #                     worksheet3.write(
+    #                         row_num + 2,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num + 1][col_num],
+    #                     )
+    #                     worksheet3.write(
+    #                         row_num + 3,
+    #                         col_num,
+    #                         ranked_obs_events.values[row_num + 2][col_num],
+    #                     )
+    # else:
+    #     pass
+    # # print(obs_time)
+    # # Close the workbook
+    # workbook.close()
 
 
 def postprocessing_events(date, max_delta_days, eclipse_list):
@@ -1393,12 +1400,10 @@ def postprocessing_events(date, max_delta_days, eclipse_list):
                 final_ranking_per_night += df_gen.loc[n]["n_exposures_possible"]
         obs[0] = final_ranking_per_night
 
-    ranking_dates.sort(key=lambda lis: lis[0], reverse=True)
+    # ranking_dates.sort(key=lambda lis: lis[0], reverse=True)
 
-    obs_events = []
-    for obs_event in ranking_dates:
-        obs_events.extend(obs_event[1])
-    Obs_events = pd.concat(obs_events)
+    obs_events = [oe[1][0] for oe in ranking_dates]
+    obs_events = pd.concat(obs_events)
 
-    return ranking_dates, Obs_events
+    return ranking_dates, obs_events
 
