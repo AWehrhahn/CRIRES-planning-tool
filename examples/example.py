@@ -38,5 +38,7 @@ eclipses_list = [eclipse]
 
 ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
             eclipses_list, "eclipses.csv", write_to_csv=1)
-
+ranked_events, Obs_events = fun.postprocessing_events(
+            date, max_delta_days, eclipses_list
+        )
 pass

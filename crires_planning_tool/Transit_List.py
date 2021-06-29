@@ -53,27 +53,19 @@ GitHub: jonaszubindu
 """
 
 
-import copy
 import datetime
-import json
 import logging
-import os
 import sys
 
 import astroplan
-import astropy
 import astropy.units as u
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import requests
 from astroplan import Observer
 from astropy.time import Time
 from astropy.utils.iers import IERS_Auto
 from astropy.visualization import astropy_mpl_style, quantity_support
-from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
 
-import classes_methods.Helper_fun as fun
 
 from tqdm import tqdm
 from concurrent.futures import (
@@ -82,14 +74,15 @@ from concurrent.futures import (
     as_completed,
     wait,
 )
-from classes_methods.classes import (
+
+from .classes_methods.classes import (
     Eclipses,
     Exoplanets,
     Nights,
     load_eclipses_from_file,
 )
-from classes_methods.misc import misc
-from classes_methods.Helper_fun import load_pickled, save_pickled
+from .classes_methods.misc import misc
+from .classes_methods import Helper_fun as fun
 
 # """ Update most recent IERS data """
 # iers.Conf.iers_auto_url.set(
@@ -142,23 +135,6 @@ def get_default_constraints():
     return constraints
 
 
-def parse_date(date, max_delta_days):
-    max_delta_days = int(max_delta_days)
-    if date == "" or date is None:
-        date = datetime.date.today()
-    elif isinstance(date, datetime.date):
-        pass
-    elif isinstance(date, datetime.datetime):
-        date = date.date()
-    else:
-        date = datetime.date.fromisoformat(str(date))
-
-    dt = datetime.timedelta(days=1)
-    date_end = max_delta_days * dt + date
-
-    return date, max_delta_days, date_end
-
-
 def parallel_func(planet, max_delta_days, obs_time, nights_paranal, constraints):
     """ This is used in  full_transit_calculation for parrallel processing """
     eclipse = Eclipses(max_delta_days, planet)
@@ -170,7 +146,7 @@ def parallel_func(planet, max_delta_days, obs_time, nights_paranal, constraints)
 
 def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_new", parallel=True):
 
-    date, max_delta_days, d_end = parse_date(date, max_delta_days)
+    date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
 
     print(
         f"*** Running full transit analysis for transits between {date} and {d_end} ***"
@@ -230,7 +206,7 @@ def full_transit_calculation(date, max_delta_days, constraints, catalog="nexa_ne
 
 
 def call_etc_for_list_of_transits(date, max_delta_days, filename=None):
-    date, max_delta_days, d_end = parse_date(date, max_delta_days)
+    date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
     if filename is None:
         filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
     eclipses_list = load_eclipses_from_file(filename, max_delta_days)
@@ -280,7 +256,7 @@ def etc_calculator(eclipses_list, minimum_snr=100):
 def single_transit_calculation(
     date, max_delta_days, name, constraints, catalog="nexa_new", minimum_SN=100
 ):
-    date, max_delta_days, d_end = parse_date(date, max_delta_days)
+    date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
 
     print(
         f"*** Running single transit analysis for transits between {date} and {d_end} ***"
@@ -371,9 +347,9 @@ if __name__ == "__main__":
         )
 
         eclipses_list = full_transit_calculation(date, max_delta_days, constraints, catalog=catalog)
-        date, max_delta_days, d_end = parse_date(date, max_delta_days)
+        date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
         filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
-        save_pickled(filename, eclipses_list)
+        fun.save_pickled(filename, eclipses_list)
 
     ##########################################################################################################
 
@@ -395,10 +371,10 @@ if __name__ == "__main__":
             print("Gosh, what do you want then???")
             exit()
 
-        date, max_delta_days, d_end = parse_date(date, max_delta_days)
+        date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
         if filename is None:
             filename = f"Eclipse_events_processed_{date.isoformat()}_{max_delta_days}d.pkl"
-        eclipses_list = load_pickled(filename)
+        eclipses_list = fun.load_pickled(filename)
         use_etc_calculator = "y"
 
 
@@ -503,14 +479,14 @@ if __name__ == "__main__":
         else:
             raise Exception("What happened?")
 
-        date, max_delta_days, d_end = parse_date(date, max_delta_days)
+        date, max_delta_days, d_end = fun.parse_date(date, max_delta_days)
         filename = f"Eclipse_events_processed_{date}_{max_delta_days}d.pkl"
 
         ranking, df_gen, df_frame, num_trans = fun.data_sorting_and_storing(
             data, filename, write_to_csv=1
         )
         ranked_events, Obs_events = fun.postprocessing_events(
-            date, max_delta_days, Nights, data
+            date, max_delta_days, data
         )
         fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
 
@@ -544,7 +520,7 @@ if __name__ == "__main__":
             eclipses_list, write_to_csv=0
         )
         ranked_events, Obs_events = fun.postprocessing_events(
-            date, max_delta_days, Nights, eclipses_list
+            date, max_delta_days, eclipses_list
         )
         fun.xlsx_writer(filename, df_gen, df_frame, Obs_events)
         ranking = fun.plotting_transit_data(

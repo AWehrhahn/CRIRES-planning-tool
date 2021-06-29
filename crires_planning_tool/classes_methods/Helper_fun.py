@@ -10,34 +10,24 @@ GitHub: jonaszubindu
 """
 import copy
 import datetime
-import json
 import logging
-import os
 import pickle
-import time
-from json import JSONDecodeError
 from os.path import dirname, join
-from tempfile import NamedTemporaryFile
-
-import astroplan.constraints
 import astropy
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
-import requests
-import xlsxwriter
-from astroplan import FixedTarget, Observer, moon_phase_angle
+from astroplan import FixedTarget, Observer
 from astroplan.plots import plot_finder_image
 from astropy import units as u
-from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_moon, get_sun
+from astropy.coordinates import AltAz, get_moon, get_sun
 from astropy.time import Time
 from astropy.visualization import astropy_mpl_style, quantity_support
 from datetimerange import DateTimeRange
-from matplotlib import dates as mpl_dates
 from matplotlib import pyplot as plt
 
-from classes_methods import misc
-from classes_methods.etc_form import EtcForm
+from .etc_form import EtcForm
+from .classes import Nights
 
 plt.style.use(astropy_mpl_style)
 quantity_support()
@@ -45,6 +35,22 @@ quantity_support()
 paranal = Observer.at_site("paranal", timezone="Chile/Continental")
 logger = logging.getLogger(__name__)
 
+
+def parse_date(date, max_delta_days):
+    max_delta_days = int(max_delta_days)
+    if date == "" or date is None:
+        date = datetime.date.today()
+    elif isinstance(date, datetime.date):
+        pass
+    elif isinstance(date, datetime.datetime):
+        date = date.date()
+    else:
+        date = datetime.date.fromisoformat(str(date))
+
+    dt = datetime.timedelta(days=1)
+    date_end = max_delta_days * dt + date
+
+    return date, max_delta_days, date_end
 
 def etc_calculator_texp(obs_obj, obs_time, snr=100):
     """
@@ -560,7 +566,6 @@ def data_sorting_and_storing(eclipses_List, filename=None, write_to_csv=1):
         ranking.append(((len(df_per_plan) * num_exp_mean ** 2), planet.name))
         num_trans.append((len(df_per_plan), planet.name))
 
-    df_frame1_sorted = frame.sort_values(by="time")
     df_gen_ranking = []
     df_gen_num_trans = []
     for elem, elem1 in zip(ranking, num_trans):
@@ -1305,7 +1310,7 @@ def xlsx_writer(filename, df_gen, df_frame, ranked_obs_events=None):
     workbook.close()
 
 
-def postprocessing_events(d, Max_Delta_days, Nights, Eclipses_List):
+def postprocessing_events(date, max_delta_days, eclipse_list):
     """
     
 
@@ -1328,50 +1333,37 @@ def postprocessing_events(d, Max_Delta_days, Nights, Eclipses_List):
         dataframe containing the ranked events.
 
     """
-    d = datetime.datetime.combine(d, datetime.time(0, 0, 0))
+    date, max_delta_days, dmax = parse_date(date, max_delta_days)
+    date = datetime.datetime.combine(date, datetime.time(0, 0, 0))
     # Max_Delta_days = int(filename.split('_')[4][:-5])
-    Nights = Nights(d, Max_Delta_days)
+
+    nights = Nights(date, max_delta_days)
 
     ranking, df_gen, df_frame, _ = data_sorting_and_storing(
-        Eclipses_List, write_to_csv=0
+        eclipse_list, write_to_csv=0
     )
 
     df_frame_date = []
     df_frame_time = []
     for elem in df_frame["time"]:
-        df_frame_date.append(elem.value.date())
-        df_frame_time.append(elem.value.time())
-
-    # df_frame.reset_index(inplace=True)
-    for n in range(int(len(df_frame["time"]) / 3 - 1)):
-        start = df_frame["time"][3 * n]
-        end = df_frame["time"][(n + 1) * 3 - 1]
-        if end < start:
-            # print(f"we got a problem with {df_frame.loc[3*n]}-{df_frame.loc[(n+1)*3-1]}")
-            raise Warning("smth went wrong in handling the times")
+        df_frame_date += [elem.value.date()]
+        df_frame_time += [elem.value.time()]
 
     df_frame.drop(columns=["time"], inplace=True)
     df_frame.insert(0, "date", df_frame_date)
     df_frame.insert(1, "time", df_frame_time)
-    # df_frame.sort_values(by=df_frame['date'])  # sorts eclipses in time and date.
 
     ranking_dates = []
-    date_section = []
-
-    for n in range(int(len(df_frame["date"]) / 3)):
-        date_section.append(df_frame[n * 3 : (n + 1) * 3])
-    # for date_sec in date_section:
-    #     ranking_dates.append((len(date_sec) / 3, date_sec))
-
+    # TODO: this is another badly optimized loop
     z = 0
-    for n, date in enumerate(Nights.date):
+    for n, date in enumerate(nights.date):
         date_sec = []
-        Nights.date[n] = [date, 0]
-        for date_obj in date_section:
+        nights.date[n] = [date, 0]
+        for _, date_obj in df_frame.iterrows():
             # date_obj.reset_index(inplace=True)
-            if date_obj["date"][0] == Nights.date[n][0].date():
-                Nights.date[n][1] = 1
-                if n > 0 and Nights.date[n - 1][1] == 1:
+            if date_obj["date"] == nights.date[n][0].date():
+                nights.date[n][1] = 1
+                if n > 0 and nights.date[n - 1][1] == 1:
                     ranking_dates[-1][0] = ranking_dates[-1][0] + 1
                     ranking_dates[-1][1].append(date_obj)
                 else:
@@ -1382,46 +1374,18 @@ def postprocessing_events(d, Max_Delta_days, Nights, Eclipses_List):
             ranking_dates.append([len(date_sec), date_sec])
             z += 1
 
-    for date_obJ in ranking_dates:  # for each date
+    for date_obj in ranking_dates:  # for each date
         ran = []
-        date_obJ = list(date_obJ)
-        for ecl in date_obJ[1]:
-            ecl.reset_index(inplace=True)
-            start = ecl["date"][0].strftime("%Y-%m-%dT") + ecl["time"][0].strftime(
-                "%H:%M:%S-0000"
-            )  # begin of eclipse
-            end = ecl["date"][2].strftime("%Y-%m-%dT") + ecl["time"][2].strftime(
-                "%H:%M:%S-0000"
-            )  # end of eclipse
-            ran.append((ecl, DateTimeRange(start, end)))
-
-        # for range1 in ran:
-        #     for range2 in ran:
-        #         if range1[1] == range2[1]:
-        #             pass
-        #         else:
-        #             if range1[1].start_datetime < range1[1].end_datetime and range2[1].start_datetime < range2[1].end_datetime:
-        #                 inter_sect = range1[1].intersection(range2[1])
-        #                 if inter_sect != None:
-        #                     date_obJ[0] += -1 / 2
-        #             elif range1[1].start_datetime < range1[1].end_datetime:
-        #                 print(f"{range1[1].start_datetime} > {range1[1].end_datetime} in {range1[0][['index','date','time']]}")
-
-        #             elif range2[1].start_datetime < range2[1].end_datetime:
-        #                 print(f"{range2[1].start_datetime} > {range2[1].end_datetime} in {range2[0][['index','date','time']]}")
+        for ecl in date_obj[1]:
+            start = ecl["time_begin"].to_datetime()
+            end = ecl["time_end"].to_datetime()
+            ran += [(ecl, DateTimeRange(start, end))]
 
     for obs in ranking_dates:
         final_ranking_per_night = 0
         for single_obs in obs[1]:
-            for n in range(len(df_gen)):
-                if (
-                    single_obs.loc[0]["index"].split(":")[1][1:]
-                    == df_gen.loc[n]["name"]
-                ):
-                    if df_gen.loc[n]["n_exposures_possible"] < 20:
-                        pass
-                    else:
-                        final_ranking_per_night += df_gen.loc[n]["n_exposures_possible"]
+            if single_obs["n_exposures_possible"] >= 20:
+                final_ranking_per_night += df_gen.loc[n]["n_exposures_possible"]
         obs[0] = final_ranking_per_night
 
     ranking_dates.sort(key=lambda lis: lis[0], reverse=True)

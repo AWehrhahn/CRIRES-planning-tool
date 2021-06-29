@@ -11,21 +11,15 @@ except if necessary due to updates on the etc-cli side. .
 @author: jonaszbinden
 GitHub: jonaszubindu
 """
-import argparse
 import json
 import logging
-import os
-import time
 import warnings
-from functools import wraps
-from json import JSONDecodeError, JSONEncoder
+from json import JSONDecodeError
 from os.path import dirname, join
 
 import numpy as np
 from astropy import units as u
 from requests_futures.sessions import FuturesSession
-
-from classes_methods import misc
 
 # TODO! workaround until we figure put how to handle ssl certificate correctly
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")

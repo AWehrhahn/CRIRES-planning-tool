@@ -10,21 +10,17 @@ Classes for Transit_List observability
 
 import datetime
 import logging
-import pickle
 from os.path import dirname, join
 
 import astroplan
-import astropy
 import astropy.units as u
 import numpy as np
 import pandas as pd
 from astroplan import FixedTarget, Observer
-from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_sun
+from astropy.coordinates import AltAz, SkyCoord, get_sun
 from astropy.time import Time
-from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
-from tqdm import tqdm
 
-import classes_methods.Helper_fun as fun
+from . import Helper_fun as fun
 
 """ Location and UTC offset Paranal """
 paranal = Observer.at_site("paranal", timezone="Chile/Continental")
