@@ -74,15 +74,24 @@ from concurrent.futures import (
     as_completed,
     wait,
 )
-
-from .classes_methods.classes import (
-    Eclipses,
-    Exoplanets,
-    Nights,
-    load_eclipses_from_file,
-)
-from .classes_methods.misc import misc
-from .classes_methods import Helper_fun as fun
+try:
+    from .classes_methods.classes import (
+        Eclipses,
+        Exoplanets,
+        Nights,
+        load_eclipses_from_file,
+    )
+    from .classes_methods.misc import misc
+    from .classes_methods import Helper_fun as fun
+except ImportError:
+    from classes_methods.classes import (
+        Eclipses,
+        Exoplanets,
+        Nights,
+        load_eclipses_from_file,
+    )
+    from classes_methods.misc import misc
+    from classes_methods import Helper_fun as fun
 
 # """ Update most recent IERS data """
 # iers.Conf.iers_auto_url.set(

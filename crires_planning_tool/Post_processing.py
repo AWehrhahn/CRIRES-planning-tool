@@ -1,10 +1,15 @@
 import pandas as pd
-from classes_methods.Helper_fun import data_sorting_and_storing
 import datetime
-from classes_methods.classes import Nights
-import sys
 from datetimerange import DateTimeRange
-from classes_methods.classes import load_eclipses_from_file
+
+try:
+    from .classes_methods.classes import Nights
+    from .classes_methods.Helper_fun import data_sorting_and_storing
+    from .classes_methods.classes import load_eclipses_from_file
+except ImportError:
+    from classes_methods.classes import Nights
+    from classes_methods.Helper_fun import data_sorting_and_storing
+    from classes_methods.classes import load_eclipses_from_file
 
 filename = input('pls give me a filename:')
 

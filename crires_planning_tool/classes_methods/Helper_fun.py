@@ -26,8 +26,12 @@ from astropy.visualization import astropy_mpl_style, quantity_support
 from datetimerange import DateTimeRange
 from matplotlib import pyplot as plt
 
-from .etc_form import EtcForm
-from .classes import Nights
+try:
+    from .etc_form import EtcForm
+    from .classes import Nights
+except ImportError:
+    from classes_methods.etc_form import EtcForm
+    from classes_methods.classes import Nights
 
 plt.style.use(astropy_mpl_style)
 quantity_support()

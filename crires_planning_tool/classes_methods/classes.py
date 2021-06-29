@@ -20,7 +20,10 @@ from astroplan import FixedTarget, Observer
 from astropy.coordinates import AltAz, SkyCoord, get_sun
 from astropy.time import Time
 
-from . import Helper_fun as fun
+try:
+    from . import Helper_fun as fun
+except ImportError:
+    from classes_methods import Helper_fun as fun
 
 """ Location and UTC offset Paranal """
 paranal = Observer.at_site("paranal", timezone="Chile/Continental")
