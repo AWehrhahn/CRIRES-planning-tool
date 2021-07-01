@@ -1,0 +1,7 @@
+MANIFEST.in
+README.md
+setup.py
+crires_planning_tool.egg-info/PKG-INFO
+crires_planning_tool.egg-info/SOURCES.txt
+crires_planning_tool.egg-info/dependency_links.txt
+crires_planning_tool.egg-info/top_level.txt
