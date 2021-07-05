@@ -1,5 +1,8 @@
 from astroquery.utils.tap.core import TapPlus
-from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
+from astroquery.nasa_exoplanet_archive import (
+    NasaExoplanetArchive as _NasaExoplanetArchive,
+)
+
 
 class NasaExoplanetsArchive:
     def __init__(self):
@@ -10,10 +13,12 @@ class NasaExoplanetsArchive:
         #:str: the table to query, should be "pscomppars" or "ps"
         self.table = "pscomppars"
         #:list: a list of citations to use
-        self.citation = ["This research has made use of the NASA Exoplanet "
+        self.citation = [
+            "This research has made use of the NASA Exoplanet "
             "Archive, which is operated by the California Institute of "
             "Technology, under contract with the National Aeronautics and "
-            "Space Administration under the Exoplanet Exploration Program."]
+            "Space Administration under the Exoplanet Exploration Program."
+        ]
 
     @property
     def url(self):
@@ -32,7 +37,7 @@ class NasaExoplanetsArchive:
     def archive(self, value):
         raise AttributeError("Set the archive via the url property")
 
-    def tap(self, asql_query):       
+    def tap(self, asql_query):
         """Get data from the TAP interface
 
         Parameters
@@ -87,7 +92,23 @@ class NasaExoplanetsArchive:
             Table with the results for the target
         """
         if regularize:
-            name = NasaExoplanetArchive._regularize_object_name(name)
-        asql_query = f"SELECT top 100 * FROM {self.table} WHERE hostname='{name}'"
+            name = _NasaExoplanetArchive._regularize_object_name(name)
+        asql_query = f"SELECT top 100 * FROM {self.table} WHERE pl_name='{name}'"
         data = self.tap(asql_query)
         return data
+
+    def query_objects(self, names, regularize=True):
+        aliases = {}
+        if regularize:
+            for i, name in enumerate(names):
+                alias = _NasaExoplanetArchive._regularize_object_name(name)
+                aliases[alias] = name
+                names[i] = alias
+        else:
+            aliases = {n:n for n in names}
+
+        asql_query = f"SELECT top 100 * FROM {self.table} WHERE "
+        asql_query += " OR ".join([f"pl_name='{name}'" for name in names])
+
+        data = self.tap(asql_query)
+        return data, aliases

@@ -14,10 +14,7 @@ import logging
 import pickle
 from os.path import dirname, join, realpath
 
-import astropy
-import matplotlib as mpl
 import numpy as np
-from numpy.lib.type_check import real
 import pandas as pd
 from astroplan import FixedTarget, Observer
 from astroplan.plots import plot_finder_image
@@ -25,7 +22,6 @@ from astropy import units as u
 from astropy.coordinates import AltAz, get_moon, get_sun
 from astropy.time import Time
 from astropy.visualization import astropy_mpl_style, quantity_support
-from datetimerange import DateTimeRange
 from matplotlib import pyplot as plt
 
 try:

@@ -1,9 +1,11 @@
-from astroplan import download_IERS_A
-import crires_planning_tool.classes_methods.Helper_fun as fun
-from crires_planning_tool.Transit_List import (etc_calculator, full_transit_calculation,
-                          get_default_constraints, single_transit_calculation)
-from crires_planning_tool.classes_methods.obsob import estimate_snr
-# download_IERS_A()
+from datetime import datetime
+# import crires_planning_tool.classes_methods.Helper_fun as fun
+# from crires_planning_tool.Transit_List import (etc_calculator, full_transit_calculation,
+#                           get_default_constraints, single_transit_calculation)
+# from crires_planning_tool.classes_methods.obsob import estimate_snr
+
+from astropy.time import Time
+from astropy import units as u
 
 # TODO: Optimization
 # ETC calls take the majority of the time
