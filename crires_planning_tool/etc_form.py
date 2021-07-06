@@ -43,7 +43,7 @@ class EtcForm:
              when adding methods to alter 'etc-form.json'. Might conflict with other methods!
     """
 
-    def __init__(self, inputtype, instrument="crires"):
+    def __init__(self, filename, instrument="crires"):
         """
             Initializes 'etc-form-default.json' via json to a namespace object according to inputtype ''ndit'' or ''snr''.
 
@@ -61,18 +61,22 @@ class EtcForm:
             "snr-Templ": "etc-form-default-ndit-Templ.json",
             "ndit-Templ": "etc-form-default-ndit-Templ.json",
         }
-        filename = join(dirname(__file__), "../json_files", filenames[inputtype])
+        if filename in filenames.keys():
+            filename = join(dirname(__file__), "json_files", filenames[filename])
         with open(filename) as args:
             etc_obj = json.load(args)
 
         self.input = etc_obj
+        self.output = None
         self.timeout = 5
         self.instrument = instrument
         self.baseurl = "https://etctestpub.eso.org/observing/etc/etcapi/"
-        # baseurl = 'https://etc.eso.org/observing/etc/etcapi/'
-        # baseurl = 'http://localhost:8000/observing/etc/etcapi/'
-        # baseurl = 'https://etctest.hq.eso.org/observing/etc/etcapi/'
 
+    def __getitem__(self, key):
+        return self.input[key]
+
+    def __setitem__(self, key, value):
+        self.input[key] = value
 
     def update_form(self, **kwargs):
         """
@@ -187,24 +191,18 @@ class EtcForm:
             self.input["timesnr"]["ndit"] = kwargs.get("ndit", dit_std)
         return self.input
 
-    def write_etc_format_file(self, input_filename=None):
+    def write(self, filename):
         """
             Writes self.etc to a new JSON file named 'etc-form.json' such
             that it can be interpreted by the ETC online-calculator.
         """
-        if input_filename is None:
-            path = join(dirname(__file__), "../json_files")
-            input_filename = join(path, "etc-form.json")
+        with open(filename, "w") as dumpfile:
+            json.dump(self.input, dumpfile, indent=2)
 
-        with open(input_filename, "w") as dumpfile:
-            json.dump(self.input, dumpfile, indent=2, cls=FormEncoder)
-
-    def get_ndit(self, output):
-        if self.input["timesnr"]["inputtype"] == "ndit":
-            ndit = self.input["timesnr"]["ndit"]
-        else:
-            ndit = output["data"]["time"]["ndit"]
-        return ndit
+    @classmethod
+    def read(cls, filename):
+        form = EtcForm(filename)
+        return form
 
     def response_hook(self, resp, *args, **kwargs):
         # parse the json storing the result on the response object
@@ -259,17 +257,10 @@ class EtcForm:
         else:
             print("error: no match for etcname: " + self.instrument)
 
-    def call(self, input_data, output_filename=None):
-        """ Call the exposure time calculator API
-
-        Parameters
-        ----------
-        instrument : str
-            Name of the instrument, here "crires"
-        input_filename : str
-            Name of the json document with the input settings
-        output_filename : str, optional
-            Name of the json document to save the results in, by default None
+    def call(self):
+        """ 
+        Call the exposure time calculator API
+        The input settings are defined in self.input
 
         Returns
         -------
@@ -280,7 +271,7 @@ class EtcForm:
         response = None
         n_attempts = max(self.timeout, 1)
         for i in range(n_attempts):
-            future = self.send_request(input_data)
+            future = self.send_request(self.input)
             try:
                 response = future.result()
                 response = response.data
@@ -300,5 +291,6 @@ class EtcForm:
         if response is None:
             raise ConnectionError("Could not connect to the ETC")
 
+        self.output = response
         return response
 
