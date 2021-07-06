@@ -1,22 +1,24 @@
-from os.path import join, dirname
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from multiprocessing import Value
+from os.path import dirname, join
+import logging
 
 import astroplan as ap
-from astropy.units.cgs import C
 import numpy as np
 import pandas as pd
-from astropy.time import Time
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 from tqdm import tqdm
 
-
 try:
-    from .nasa_exoplanets_archive import NasaExoplanetsArchive
     from .interactive_graph import create_interactive_graph
+    from .nasa_exoplanets_archive import NasaExoplanetsArchive
 except ImportError:
-    from nasa_exoplanets_archive import NasaExoplanetsArchive
     from interactive_graph import create_interactive_graph
+    from nasa_exoplanets_archive import NasaExoplanetsArchive
 
+logger = logging.getLogger(__name__)
 
 
 def get_default_constraints():
@@ -75,24 +77,82 @@ def estimate_snr(
         if mband == "J":
             snr = 1.1774 * 100 / np.sqrt(40 * 10 ** ((mag - 4.2) / 2.5)) * np.sqrt(et)
         else:
-            print("Use Jmag for calculation of Carmenes SNR.")
-            snr = np.nan
+            raise ValueError("Use Jmag for calculation of Carmenes SNR.")
     elif method == "crires":
         if mband == "K":
             snr = 449.4241 * np.sqrt(10 ** (-mag / 2.5)) * np.sqrt(et) - 6.3144
         else:
-            print("Use Kmag for calculation of Crires SNR.")
-            snr = np.nan
-
+            raise ValueError("Use Kmag for calculation of Crires SNR.")
     else:
-        print("Method not recognized. Use Crires or Carmenes.")
-        snr = np.nan
+        raise ValueError("Method not recognized. Use Crires or Carmenes.")
 
     # Scale to airmass = airm
     extcof = 0.05  # extinction coefficient, see Lombardi et al., 2018
     snr *= 10 ** (extcof / 5 * (1 - airmass))
 
     return snr
+
+
+def single_planet(data, date_start, date_end, constraints, observer, verbose=0):
+    primary_eclipse_time = Time(data["pl_tranmid"], format="jd")
+    orbital_period = data["pl_orbper"] * u.day
+    eclipse_duration = data["pl_trandur"] * u.hour
+    name = data["pl_name"]
+    # Update the progress bar
+    # Define the target coordinates
+    coord = SkyCoord(ra=data["ra"], dec=data["dec"], unit=u.deg)
+    target = ap.FixedTarget(coord, name=name)
+    # Define the star-planet system
+    system = ap.EclipsingSystem(
+        primary_eclipse_time=primary_eclipse_time,
+        orbital_period=orbital_period,
+        duration=eclipse_duration,
+        name=name,
+    )
+    # Find all eclipses of this system
+    n_max_eclipses = (date_end - date_start) / orbital_period
+    n_max_eclipses = max(n_max_eclipses, 1)
+    eclipses = system.next_primary_ingress_egress_time(
+        date_start, n_eclipses=n_max_eclipses
+    )
+    # If the last eclipse is past the final date, just cut it off
+    if eclipses[-1][0] > date_end:
+        eclipses = eclipses[:-1]
+    if len(eclipses) == 0:
+        if verbose >= 1:
+            logger.warning(f"No observable transits found for planet {name}")
+        return None
+
+    # Check if they are observable
+    is_observable = ap.is_event_observable(
+        constraints, observer, target, times_ingress_egress=eclipses
+    )[0]
+    observable_eclipses = eclipses[is_observable]
+    n_eclipses = len(observable_eclipses)
+    if n_eclipses == 0:
+        if verbose >= 0:
+            logger.warning(f"No observable transits found for planet {name}")
+        return None
+
+    # Calculate the SNR for those that are left
+    magnitude = data["sy_kmag"] * u.mag
+    exptime = eclipse_duration
+    # exptime = np.diff(observable_eclipses.jd, axis=1).ravel() * u.day
+    obstime = Time(np.mean(observable_eclipses.jd, axis=1), format="jd")
+    airmass = calculate_airmass(obstime, observer, target)
+    snr = estimate_snr(magnitude, exptime, airmass)
+
+    # Save results for later
+    result = {
+        "name": [name] * n_eclipses,
+        "snr": snr.to_value(1),
+        "exptime": [eclipse_duration.to_value(u.second)] * n_eclipses,
+        "time": obstime.mjd,
+        "time_begin": observable_eclipses[:, 0].datetime,
+        "time_end": observable_eclipses[:, 1].datetime,
+        "stellar_effective_temperature": [data["st_teff"]] * n_eclipses,
+    }
+    return result
 
 
 def transit_calculation(
@@ -103,7 +163,8 @@ def transit_calculation(
     observer="paranal",
     catalog="nexa",
     verbose=0,
-    mode="planets"
+    mode="planets",
+    parallel=True,
 ):
     """
     Determine the SNR of all observable transits for one or more planets between two times
@@ -124,6 +185,8 @@ def transit_calculation(
         the name of the data catalog, by default "nexa", which stands for the Nasa Exoplanet Archive
     verbose : int, optional
         amount of information displayed during runtime, 0 (default), 1 (some info), 2 (technical details), -1 (none)
+    parallel : bool, optional
+        if True will perform the observability and SNR calculation for all planets in parallel, by default True.
 
     Returns
     -------
@@ -138,8 +201,13 @@ def transit_calculation(
           - time_end: egress time in MJD
     """
 
-    assert mode in ["planets", "criteria"], f"Expected one of ['planets', 'criteria'], but got {mode} for parameter 'mode'"
-    assert catalog in ["nexa"], f"Expected one of ['nexa',], but got {catalog} for parameter 'catalog'"
+    assert mode in [
+        "planets",
+        "criteria",
+    ], f"Expected one of ['planets', 'criteria'], but got {mode} for parameter 'mode'"
+    assert catalog in [
+        "nexa"
+    ], f"Expected one of ['nexa',], but got {catalog} for parameter 'catalog'"
 
     # Fix the inputs to match our expectations
     if constraints is None:
@@ -151,29 +219,47 @@ def transit_calculation(
         planets_or_criteria = [planets_or_criteria]
 
     if planets_or_criteria is None:
-        if mode == "criteria": 
+        if mode == "criteria":
             if verbose >= 0:
-                print("No criteria were set for the observation, using default values instead. Set 'planets_or_criteria' to an empty list if you want to use all planets instead [].")
-            planets_or_criteria = ["pl_bmassj < 1", "dec < 10", "sy_jmag < 10", "sy_hmag < 10", "st_teff < 6000"]
+                logger.warning(
+                    "No criteria were set for the observation, using default values instead. Set 'planets_or_criteria' to an empty list if you want to use all planets instead []."
+                )
+            planets_or_criteria = [
+                "pl_bmassj < 1",
+                "dec < 10",
+                "sy_jmag < 10",
+                "sy_hmag < 10",
+                "st_teff < 6000",
+            ]
         else:
-            raise TypeError("Expected type str or list for parameter 'planets_or_criteria', but got None")
-    
+            raise TypeError(
+                "Expected type str or list for parameter 'planets_or_criteria', but got None"
+            )
+
     date_start = Time(date_start)
     date_end = Time(date_end)
     assert date_start < date_end, "Starting date must be earlier than the end date"
 
     if verbose >= 0:
         if mode == "planets":
-            print(f"Calculating observable transits for planets: {planets_or_criteria}")
-        elif mode == "criteria": 
-            print(f"Calculating observable transits for planets that fullfill: {planets_or_criteria}")
+            logger.info(
+                f"Calculating observable transits for planets: {planets_or_criteria}"
+            )
+        elif mode == "criteria":
+            logger.info(
+                f"Calculating observable transits for planets that fullfill: {planets_or_criteria}"
+            )
         else:
             raise ValueError
-        print(f"between {date_start} and {date_end}")
+        logger.info(f"between {date_start} and {date_end}")
     if observer != "paranal" or verbose >= 1:
-        print(f"at observing location {observer}")
+        if observer.name is not None:
+            observer_name = observer.name
+        else:
+            observer_name = observer.location
+        logger.info(f"at observing location {observer_name}")
     if catalog != "nexa" or verbose >= 1:
-        print(f"using data catalog {catalog}")
+        logger.info(f"using data catalog {catalog}")
 
     if catalog == "nexa":
         # TODO: this is slow, add a cache?
@@ -187,8 +273,18 @@ def transit_calculation(
     else:
         raise ValueError
 
-    if verbose >= 1:
-        print(f"Successfully loaded planet data from catalog and found {len(catalog)} planets")
+    # Drop masked values
+    mask = np.ma.getmaskarray(catalog["pl_tranmid"])
+    mask |= np.ma.getmask(catalog["pl_orbper"])
+    mask |= np.ma.getmask(catalog["pl_trandur"])
+    mask |= np.ma.getmask(catalog["sy_kmag"])
+    mask |= np.ma.getmask(catalog["st_teff"])
+    catalog = catalog[~mask]
+
+    if verbose >= 0:
+        logger.info(
+            f"Successfully loaded planet data from catalog and found {len(catalog)} potential planets"
+        )
 
     results = {
         "name": [],
@@ -199,61 +295,45 @@ def transit_calculation(
         "time_end": [],
         "stellar_effective_temperature": [],
     }
-    with tqdm(catalog, desc="Planets", disable=verbose < 0) as progress:
-        for data in progress:
-            primary_eclipse_time = Time(data["pl_tranmid"], format="jd")
-            orbital_period = data["pl_orbper"] * u.day
-            eclipse_duration = data["pl_trandur"] * u.hour
-            name = data["pl_name"]
-            # Update the progress bar
-            progress.desc = f"Planet {name}"
-            # Define the target coordinates
-            coord = SkyCoord(ra=data["ra"], dec=data["dec"], unit=u.deg)
-            target = ap.FixedTarget(coord, name=name)
-            # Define the star-planet system
-            system = ap.EclipsingSystem(
-                primary_eclipse_time=primary_eclipse_time,
-                orbital_period=orbital_period,
-                duration=eclipse_duration,
-                name=name,
+    if parallel:
+        with ProcessPoolExecutor() as executor:
+            futures = []
+            for data in catalog:
+                args = (data,
+                        date_start,
+                        date_end,
+                        constraints,
+                        observer,
+                        verbose,)
+                futures += [
+                    executor.submit(
+                        single_planet,
+                        data,
+                        date_start,
+                        date_end,
+                        constraints,
+                        observer,
+                        verbose,
+                    )
+                ]
+            for future in tqdm(
+                as_completed(futures),
+                desc="Planets",
+                total=len(futures),
+                disable=verbose < 0,
+            ):
+                results_single = future.result()
+                if results_single is not None:
+                    for key in results.keys():
+                        results[key] += [results_single[key]]
+    else:
+        for data in tqdm(catalog, desc="Planets"):
+            results_single = single_planet(
+                data, date_start, date_end, constraints, observer, verbose
             )
-            # Find all eclipses of this system
-            n_max_eclipses = (date_end - date_start) / orbital_period
-            eclipses = system.next_primary_ingress_egress_time(
-                date_start, n_eclipses=n_max_eclipses
-            )
-            # If the last eclipse is past the final date, just cut it off
-            if eclipses[-1][0] > date_end:
-                eclipses = eclipses[:-1]
-
-            # Check if they are observable
-            is_observable = ap.is_event_observable(
-                constraints, observer, target, times_ingress_egress=eclipses
-            )[0]
-            observable_eclipses = eclipses[is_observable]
-
-            # Calculate the SNR for those that are left
-            magnitude = data["sy_kmag"] * u.mag
-            exptime = eclipse_duration
-            # exptime = np.diff(observable_eclipses.jd, axis=1).ravel() * u.day
-            obstime = Time(np.mean(observable_eclipses.jd, axis=1), format="jd")
-            airmass = calculate_airmass(obstime, observer, target)
-            snr = estimate_snr(magnitude, exptime, airmass)
-
-            # Save results for later
-            n_eclipses = len(snr)
-            if n_eclipses == 0:
-                if verbose >= 0:
-                    print(f"WARNING: No observable transits found for planet {name}")
-                continue
-            results["name"] += [[name] * n_eclipses]
-            results["snr"] += [snr.to_value(1)]
-            results["exptime"] += [[eclipse_duration.to_value(u.second)] * n_eclipses]
-            results["time"] += [obstime.mjd]
-            results["time_begin"] += [observable_eclipses[:, 0].datetime]
-            results["time_end"] += [observable_eclipses[:, 1].datetime]
-            results["stellar_effective_temperature"] += [[data["st_teff"]] * n_eclipses]
-        progress.desc = "Planets"
+            if results_single is not None:
+                for key in results.keys():
+                    results[key] += [results_single[key]]
 
     # Store everything in a dataframe
     if len(results["name"]) == 0:
@@ -262,7 +342,7 @@ def transit_calculation(
         results[column] = np.concatenate(results[column])
     df = pd.DataFrame(data=results)
     if verbose >= 1:
-        print(df)
+        logger.debug(df)
     return df
 
 
@@ -271,6 +351,7 @@ if __name__ == "__main__":
     # one planet all transits in a time frame
     # multiple planets in a time frame
     import argparse
+    import warnings
     import dateparser
 
     parser = argparse.ArgumentParser(description="CRIRES+ planning tool")
@@ -283,7 +364,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "planets",
         type=str,
-        nargs="+",
+        nargs="*",
         help="Names of the planets to calculate in the format 'star letter'",
     )
     parser.add_argument(
@@ -300,6 +381,13 @@ if __name__ == "__main__":
         help="Name of the data catalog to use, by default 'nexa' (Nasa Exoplanet Archive)",
         default="nexa",
     )
+    parser.add_argument(
+        "-m",
+        "--mode",
+        type=str,
+        help="Which mode to use 'planets' or 'criteria'",
+        default="planets",
+    )
     parser.add_argument("-o", "--output", type=str, help="Save the data to this file")
     parser.add_argument(
         "-f",
@@ -307,7 +395,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Load planet names from a file instead, one planet name per line. Lines starting with # are considered comments",
     )
-    parser.add_argument("-p", "--plot", action="store_true", help="If set will create an interactive plot")
+    parser.add_argument(
+        "-p",
+        "--plot",
+        action="store_true",
+        help="If set will create an interactive plot",
+    )
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("-s", "--silent", action="store_true")
     args = parser.parse_args()
@@ -318,15 +411,22 @@ if __name__ == "__main__":
     date_end = args.end
     observer = args.observer
     catalog = args.catalog
+    mode = args.mode
 
     if args.file:
         filename = planets[0]
         if verbose >= 1:
-            print(f"Reading input planets from file {filename}")
+            print(f"Reading input planets/criteria from file {filename}")
         with open(filename, "r") as f:
             planets = f.readlines()
             planets = [p.strip() for p in planets]
             planets = [p for p in planets if not p.startswith("#")]
+
+    if len(planets) == 0:
+        planets = None
+
+    if verbose < 0:
+        warnings.filterwarnings("ignore", category=UserWarning, append=True)
 
     # Run the main method
     df = transit_calculation(
@@ -336,6 +436,7 @@ if __name__ == "__main__":
         observer=observer,
         catalog=catalog,
         verbose=verbose,
+        mode=mode,
     )
 
     if args.output is not None:

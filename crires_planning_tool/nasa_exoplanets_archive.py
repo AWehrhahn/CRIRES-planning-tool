@@ -1,12 +1,18 @@
-from astroquery.utils.tap.core import TapPlus
-from astroquery.nasa_exoplanet_archive import (
-    NasaExoplanetArchive as _NasaExoplanetArchive,
-)
-from astropy.utils.data import clear_download_cache, import_file_to_cache, download_file
-from tempfile import NamedTemporaryFile
-from astropy.table import Table
-import urllib
 import json
+import logging
+import urllib
+from tempfile import NamedTemporaryFile
+
+from astropy.table import Table
+from astropy.utils.data import (clear_download_cache, download_file,
+                                import_file_to_cache)
+from astroquery.nasa_exoplanet_archive import \
+    NasaExoplanetArchive as _NasaExoplanetArchive
+from astroquery.utils.tap.core import TapPlus
+
+logger = logging.getLogger(__name__)
+
+
 class NasaExoplanetsArchive:
     def __init__(self, timeout=10, verbose=0):
         #:int: the number of tries before timing out the query
@@ -24,7 +30,6 @@ class NasaExoplanetsArchive:
             "Technology, under contract with the National Aeronautics and "
             "Space Administration under the Exoplanet Exploration Program."
         ]
-
 
     @property
     def url(self):
@@ -49,15 +54,18 @@ class NasaExoplanetsArchive:
     def get_filename_from_cache(self, filename):
         try:
             url = "file:" + urllib.parse.quote(filename)
-            fname = download_file(url, cache=True, pkgname="crires-planning-tool", show_progress=False)
+            fname = download_file(
+                url, cache=True, pkgname="crires-planning-tool", show_progress=False
+            )
         except:
             fname = None
         return fname
 
     def import_file_to_cache(self, key, filename):
         url = "file:" + urllib.parse.quote(key)
-        import_file_to_cache(url, filename, pkgname="crires-planning-tool", replace=True)
-
+        import_file_to_cache(
+            url, filename, pkgname="crires-planning-tool", replace=True
+        )
 
     def from_cache_table(self, asql_query):
         try:
@@ -90,8 +98,6 @@ class NasaExoplanetsArchive:
             tempfile.flush()
             self.import_file_to_cache(fname, tempfile.name)
 
-
-
     def tap(self, asql_query):
         """Get data from the TAP interface
 
@@ -112,22 +118,22 @@ class NasaExoplanetsArchive:
         RuntimeError
             Could not get results with the given query
         """
-        
+
         data = self.from_cache_table(asql_query)
         if data is not None:
             if self.verbose >= 1:
-                print("Retrieving catalog data from local cache")
+                logger.info("Retrieving catalog data from local cache")
             return data
 
         for i in range(self.timeout):
             try:
                 # data = NasaExoplanetArchive.query_object(name)
-                query = self.archive.launch_job(asql_query, verbose=self.verbose>=1)
+                query = self.archive.launch_job(asql_query, verbose=self.verbose >= 1)
                 data = query.results
                 break
             except ConnectionError:
                 if self.verbose >= 1:
-                    print(f"Connection failed, attempt {i} of {self.timeout}")
+                    logger.warning(f"Connection failed, attempt {i} of {self.timeout}")
                 continue
 
         if data is None and i == self.timeout - 1:
@@ -137,7 +143,7 @@ class NasaExoplanetsArchive:
 
         # Store it in the cache for later
         self.to_cache_table(asql_query, data)
-      
+
         return data
 
     def query_object(self, name, regularize=True):
