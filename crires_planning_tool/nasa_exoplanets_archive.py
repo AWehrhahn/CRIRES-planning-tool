@@ -5,9 +5,11 @@ from astroquery.nasa_exoplanet_archive import (
 
 
 class NasaExoplanetsArchive:
-    def __init__(self):
+    def __init__(self, timeout=10, verbose=0):
         #:int: the number of tries before timing out the query
-        self.timeout = 10
+        self.timeout = timeout
+        #:bool: verbose TAP connection
+        self.verbose = verbose
         #:str: the url of the TAP interface
         self.url = "https://exoplanetarchive.ipac.caltech.edu/TAP"
         #:str: the table to query, should be "pscomppars" or "ps"
@@ -20,13 +22,14 @@ class NasaExoplanetsArchive:
             "Space Administration under the Exoplanet Exploration Program."
         ]
 
+
     @property
     def url(self):
         return self._url
 
     @url.setter
     def url(self, value):
-        self._archive = TapPlus(url=value)
+        self._archive = TapPlus(url=value, verbose=self.verbose >= 2)
         self._url = value
 
     @property
@@ -65,7 +68,8 @@ class NasaExoplanetsArchive:
                 data = query.results
                 break
             except ConnectionError:
-                print(f"Connection failed, attempt {i} of {self.timeout}")
+                if self.verbose >= 1:
+                    print(f"Connection failed, attempt {i} of {self.timeout}")
                 continue
 
         if data is None and i == self.timeout - 1:
@@ -91,11 +95,7 @@ class NasaExoplanetsArchive:
         data : astropy.Table
             Table with the results for the target
         """
-        if regularize:
-            name = _NasaExoplanetArchive._regularize_object_name(name)
-        asql_query = f"SELECT top 100 * FROM {self.table} WHERE pl_name='{name}'"
-        data = self.tap(asql_query)
-        return data
+        return self.query_object([name], regularize=regularize)
 
     def query_objects(self, names, regularize=True):
         aliases = {}
@@ -108,7 +108,18 @@ class NasaExoplanetsArchive:
             aliases = {n:n for n in names}
 
         asql_query = f"SELECT top 100 * FROM {self.table} WHERE "
-        asql_query += " OR ".join([f"pl_name='{name}'" for name in names])
+        asql_query += " OR ".join([f"pl_name like '%{name}%'" for name in names])
 
         data = self.tap(asql_query)
-        return data, aliases
+
+        for i, d in enumerate(data):
+            try:
+                name = d["pl_name"]
+                name = aliases[name]
+            except KeyError:
+                name = d["hostname"]
+                name = aliases.get(name, name)
+                name = f"{name} {d['pl_letter']}"
+            data[i]["pl_name"] = name
+
+        return data
