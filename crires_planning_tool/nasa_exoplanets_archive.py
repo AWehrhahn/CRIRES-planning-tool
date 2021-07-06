@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Handles the data access to the Nasa Exoplanet Archive
+Especially since it does not use TAP in  astroquery (yet)
+
+@author: Ansgar Wehrhahn
+"""
 import json
 import logging
 import urllib

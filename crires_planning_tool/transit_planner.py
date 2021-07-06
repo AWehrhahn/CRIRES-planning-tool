@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Does all the transit planning
+
+@author: Ansgar Wehrhahn
+"""
+
 import argparse
 import logging
 import warnings
@@ -25,39 +33,53 @@ logger = logging.getLogger(__name__)
 
 
 def get_default_constraints():
-    """ Altitude constraints definition """
+    """
+    Defines the default constraints if none are explicitly set.
+    Those are Altitude above 30 deg, airmass less than 1.7, 
+    astronomical twilight at the observing location, and at 
+    least 45 deg seperation from the moon
+
+    Returns
+    -------
+    constraints : list
+        list of constraints
+    """    
+    # Altitude constraints definition
     altcons = ap.AltitudeConstraint(min=+30 * u.deg, max=None)
 
-    """ Airmass constraints definition """
+    # Airmass constraints definition
     airmasscons = ap.AirmassConstraint(min=None, max=1.7)
 
-    """ Astronomical Nighttime constraints definition: begin and end of each night at paranal as AtNightConstraint.twilight_astronomical """
+    # Astronomical Nighttime constraints definition: 
+    # begin and end of each night at paranal as 
+    # AtNightConstraint.twilight_astronomical
     night_cons_per_night = ap.AtNightConstraint.twilight_astronomical()
 
-    """ Moon Constraint """
+    # Moon Constraint
     mooncons = ap.MoonSeparationConstraint(min=+45 * u.deg, max=None)
 
     constraints = [night_cons_per_night, altcons, airmasscons, mooncons]
     return constraints
 
 
-def load_catalog(catalog="nexa"):
-    filenames = {
-        "nexa": "PlanetList.csv",
-        "custom": "PlanetList_edit.csv",
-    }
-    # Use a standard catalog if available
-    # Otherwise interpret it as a filename
-    try:
-        filename = join(dirname(__file__), "csv_files", filenames[catalog])
-    except KeyError:
-        filename = catalog
-
-    candidate_list = pd.read_csv(filename)
-    return candidate_list
-
-
 def calculate_airmass(obstime, observer, target):
+    """
+    Get the airmass at obstime
+
+    Parameters
+    ----------
+    obstime : Time
+        observation times
+    observer : astroplan.Observer
+        telescope location
+    target : astroplan.FixedTarget
+        Star location
+
+    Returns
+    -------
+    airmass : Quantity
+        airmass at obstime
+    """
     altaz = observer.altaz(obstime, target)
     airmass = altaz.secz
     return airmass
@@ -69,6 +91,25 @@ def estimate_snr(
 ):
     """
     Computes SNR of stellar spectrum from magnitude, exposure time (in seconds) and airmass
+    @author fabian lesjak
+
+    Parameters
+    ----------
+    magnitude : Quantity
+        stellar magnitude in the band specified by mband
+    exptime : Quantity
+        exposure time
+    airmass : Quantity
+        airmass
+    method : {"crires", "carmenes"}, optional
+        which formula to use, by default "crires"
+    mband : str, optional
+        which spectral band to use, by default "K"
+
+    Returns
+    -------
+    snr : Quantity
+        Signal to Noise Ratio
     """
     # SNR with airmass = 1
     mag = magnitude.to_value(u.mag)
@@ -97,6 +138,29 @@ def estimate_snr(
 
 
 def single_planet(data, date_start, date_end, constraints, observer, verbose=0):
+    """
+    Performs the observability and SNR estimation for a single planet
+
+    Parameters
+    ----------
+    data : dict
+        data for this planet
+    date_start : Time
+        start date
+    date_end : Time
+        end date
+    constraints : list
+        list of observability constraints
+    observer : astroplan.Observer
+        telescope location
+    verbose : int, optional
+        how much information to print, by default 0
+
+    Returns
+    -------
+    result : dict
+        contains everything about this planet, one entry per observable transit
+    """
     primary_eclipse_time = Time(data["pl_tranmid"], format="jd")
     orbital_period = data["pl_orbper"] * u.day
     eclipse_duration = data["pl_trandur"] * u.hour
