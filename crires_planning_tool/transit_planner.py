@@ -410,8 +410,8 @@ def main():
     )
     parser.add_argument("--plot-file-1", help="filename for the first plot")
     parser.add_argument("--plot-file-2", help="filename for the first plot")
-    parser.add_argument("-v", "--verbose", action="count", default=0)
-    parser.add_argument("-s", "--silent", action="store_true")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="verbosity level up to -vv")
+    parser.add_argument("-s", "--silent", action="store_true", help="removes all console output, except for errors")
     args = parser.parse_args()
 
     # Process the arguments
