@@ -1,9 +1,12 @@
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import argparse
+import logging
+import warnings
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Value
 from os.path import dirname, join
-import logging
 
 import astroplan as ap
+import dateparser
 import numpy as np
 import pandas as pd
 from astropy import units as u
@@ -346,15 +349,19 @@ def transit_calculation(
     return df
 
 
-if __name__ == "__main__":
-    # TODO: add a menu
-    # one planet all transits in a time frame
-    # multiple planets in a time frame
-    import argparse
-    import warnings
-    import dateparser
+def main():
+    """
+    Command line interface for the crires planning tool
+    all parameters are set via sys.argv
+
+    Returns
+    -------
+    df : pd.DataFrame
+        The dataframe containing all observable transits
+    """
 
     parser = argparse.ArgumentParser(description="CRIRES+ planning tool")
+    # Add all arguments
     parser.add_argument(
         "begin", type=dateparser.parse, help="first date to check for transits"
     )
@@ -401,10 +408,13 @@ if __name__ == "__main__":
         action="store_true",
         help="If set will create an interactive plot",
     )
+    parser.add_argument("--plot-file-1", help="filename for the first plot")
+    parser.add_argument("--plot-file-2", help="filename for the first plot")
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("-s", "--silent", action="store_true")
     args = parser.parse_args()
 
+    # Process the arguments
     verbose = args.verbose if args.silent is False else -1
     planets = args.planets
     date_start = args.begin
@@ -412,6 +422,13 @@ if __name__ == "__main__":
     observer = args.observer
     catalog = args.catalog
     mode = args.mode
+    output = args.output
+    plot = args.plot
+    plot_file_1 = args.plot_file_1
+    plot_file_2 = args.plot_file_2
+    if plot_file_1 is not None or plot_file_2 is not None:
+        plot = True
+
 
     if args.file:
         filename = planets[0]
@@ -439,15 +456,18 @@ if __name__ == "__main__":
         mode=mode,
     )
 
-    if args.output is not None:
-        df.to_csv(args.output)
+    # Output as desired
+    if output is not None:
+        df.to_csv(output)
         if verbose >= 1:
-            print(f"Stored results in file {args.output}")
-    if verbose == 0 and not args.output:
+            print(f"Stored results in file {output}")
+    if verbose == 0 and output is None:
         # for verbose >= 1, we already print it in the method
         print(df)
 
-    if args.plot:
-        create_interactive_graph(df)
+    if plot:
+        create_interactive_graph(df, plot_file_1, plot_file_2)
+    return df
 
-    pass
+if __name__ == "__main__":
+    main()
