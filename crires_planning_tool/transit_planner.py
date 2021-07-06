@@ -1,6 +1,7 @@
 from os.path import join, dirname
 
 import astroplan as ap
+from astropy.units.cgs import C
 import numpy as np
 import pandas as pd
 from astropy.time import Time
@@ -11,8 +12,11 @@ from tqdm import tqdm
 
 try:
     from .nasa_exoplanets_archive import NasaExoplanetsArchive
+    from .interactive_graph import create_interactive_graph
 except ImportError:
     from nasa_exoplanets_archive import NasaExoplanetsArchive
+    from interactive_graph import create_interactive_graph
+
 
 
 def get_default_constraints():
@@ -92,13 +96,14 @@ def estimate_snr(
 
 
 def transit_calculation(
-    planets,
+    planets_or_criteria,
     date_start,
     date_end,
     constraints=None,
     observer="paranal",
     catalog="nexa",
     verbose=0,
+    mode="planets"
 ):
     """
     Determine the SNR of all observable transits for one or more planets between two times
@@ -133,22 +138,37 @@ def transit_calculation(
           - time_end: egress time in MJD
     """
 
-    assert date_start < date_end, "Starting date must be earlier than the end date"
+    assert mode in ["planets", "criteria"], f"Expected one of ['planets', 'criteria'], but got {mode} for parameter 'mode'"
+    assert catalog in ["nexa"], f"Expected one of ['nexa',], but got {catalog} for parameter 'catalog'"
 
     # Fix the inputs to match our expectations
     if constraints is None:
         constraints = get_default_constraints()
 
-    if isinstance(observer, str):
+    if not isinstance(observer, ap.Observer):
         observer = ap.Observer.at_site(observer)
-    if isinstance(planets, str):
-        planets = [planets]
+    if isinstance(planets_or_criteria, str):
+        planets_or_criteria = [planets_or_criteria]
 
+    if planets_or_criteria is None:
+        if mode == "criteria": 
+            if verbose >= 0:
+                print("No criteria were set for the observation, using default values instead. Set 'planets_or_criteria' to an empty list if you want to use all planets instead [].")
+            planets_or_criteria = ["pl_bmassj < 1", "dec < 10", "sy_jmag < 10", "sy_hmag < 10", "st_teff < 6000"]
+        else:
+            raise TypeError("Expected type str or list for parameter 'planets_or_criteria', but got None")
+    
     date_start = Time(date_start)
     date_end = Time(date_end)
+    assert date_start < date_end, "Starting date must be earlier than the end date"
 
     if verbose >= 0:
-        print(f"Calculating observable transits for planets: {planets}")
+        if mode == "planets":
+            print(f"Calculating observable transits for planets: {planets_or_criteria}")
+        elif mode == "criteria": 
+            print(f"Calculating observable transits for planets that fullfill: {planets_or_criteria}")
+        else:
+            raise ValueError
         print(f"between {date_start} and {date_end}")
     if observer != "paranal" or verbose >= 1:
         print(f"at observing location {observer}")
@@ -158,14 +178,17 @@ def transit_calculation(
     if catalog == "nexa":
         # TODO: this is slow, add a cache?
         nexa = NasaExoplanetsArchive(verbose=verbose)
-        catalog = nexa.query_objects(planets)
+        if mode == "planets":
+            catalog = nexa.query_objects(planets_or_criteria)
+        elif mode == "criteria":
+            catalog = nexa.query_criteria(planets_or_criteria)
+        else:
+            raise ValueError
     else:
-        raise ValueError(
-            f"Could not parse selected catalog, expected 'nexa', but got {catalog} instead"
-        )
+        raise ValueError
 
     if verbose >= 1:
-        print("Successfully loaded planet data from catalog")
+        print(f"Successfully loaded planet data from catalog and found {len(catalog)} planets")
 
     results = {
         "name": [],
@@ -174,6 +197,7 @@ def transit_calculation(
         "time": [],
         "time_begin": [],
         "time_end": [],
+        "stellar_effective_temperature": [],
     }
     with tqdm(catalog, desc="Planets", disable=verbose < 0) as progress:
         for data in progress:
@@ -198,6 +222,7 @@ def transit_calculation(
             eclipses = system.next_primary_ingress_egress_time(
                 date_start, n_eclipses=n_max_eclipses
             )
+            # If the last eclipse is past the final date, just cut it off
             if eclipses[-1][0] > date_end:
                 eclipses = eclipses[:-1]
 
@@ -225,9 +250,11 @@ def transit_calculation(
             results["snr"] += [snr.to_value(1)]
             results["exptime"] += [[eclipse_duration.to_value(u.second)] * n_eclipses]
             results["time"] += [obstime.mjd]
-            results["time_begin"] += [observable_eclipses[:, 0].mjd]
-            results["time_end"] += [observable_eclipses[:, 1].mjd]
+            results["time_begin"] += [observable_eclipses[:, 0].datetime]
+            results["time_end"] += [observable_eclipses[:, 1].datetime]
+            results["stellar_effective_temperature"] += [[data["st_teff"]] * n_eclipses]
         progress.desc = "Planets"
+
     # Store everything in a dataframe
     if len(results["name"]) == 0:
         raise ValueError("No observable transits found")
@@ -248,7 +275,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="CRIRES+ planning tool")
     parser.add_argument(
-        "start", type=dateparser.parse, help="first date to check for transits"
+        "begin", type=dateparser.parse, help="first date to check for transits"
     )
     parser.add_argument(
         "end", type=dateparser.parse, help="last date to check for transits"
@@ -280,13 +307,14 @@ if __name__ == "__main__":
         action="store_true",
         help="Load planet names from a file instead, one planet name per line. Lines starting with # are considered comments",
     )
+    parser.add_argument("-p", "--plot", action="store_true", help="If set will create an interactive plot")
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("-s", "--silent", action="store_true")
     args = parser.parse_args()
 
     verbose = args.verbose if args.silent is False else -1
     planets = args.planets
-    date_start = args.start
+    date_start = args.begin
     date_end = args.end
     observer = args.observer
     catalog = args.catalog
@@ -317,5 +345,8 @@ if __name__ == "__main__":
     if verbose == 0 and not args.output:
         # for verbose >= 1, we already print it in the method
         print(df)
+
+    if args.plot:
+        create_interactive_graph(df)
 
     pass
