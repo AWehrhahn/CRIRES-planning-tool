@@ -30,7 +30,7 @@ __console__ = TqdmLoggingHandler()
 __console__.setLevel(logging.WARNING)
 if colorlog is not None:
     __console__.setFormatter(
-        colorlog.ColoredFormatter("%(log_color)s%(levelname)s - %(name)s - %(message)s")
+        colorlog.ColoredFormatter("%(log_color)s%(levelname)s - %(message)s")
     )
 logger.addHandler(__console__)
 
