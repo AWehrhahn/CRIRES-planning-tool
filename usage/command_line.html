@@ -1,0 +1,178 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Command Line Interface &#8212; CRIRES+ Planning Tool 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="crires_planning_tool package" href="../crires_planning_tool.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="command-line-interface">
+<h1>Command Line Interface<a class="headerlink" href="#command-line-interface" title="Permalink to this headline">¶</a></h1>
+<p>The CRIRES Planning Tool features a command line Interface to access the functionality.
+The recommended way to call it is <cite>python -m crires-planning-tool</cite>,
+but it can also be accessed by calling <cite>python transit_planner.py</cite> directly.</p>
+<dl class="simple">
+<dt>usage: crires-planning-tool [-h] [-O OBSERVER] [-C CATALOG] [-m MODE]</dt><dd><p>[-o OUTPUT] [-f] [-p] [–plot-file-1 PLOT_FILE_1]
+[–plot-file-2 PLOT_FILE_2] [-v] [-s]
+begin end [planets [planets …]]</p>
+</dd>
+</dl>
+<p>CRIRES+ planning tool to determine the observable transits of one or more
+planets</p>
+<dl>
+<dt>positional arguments:</dt><dd><p>begin                 first date to check for transits
+end                   last date to check for transits
+planets               Names of the planets to calculate in the format ‘star</p>
+<blockquote>
+<div><p>letter’. If just the name of the star is given it will
+get all the planets of that system. If mode is set to
+‘criteria’ this defines the criteria instead of the
+planets, look at the NASA Exoplanet Archive
+documentation of the TAP interface for available
+criteria.</p>
+</div></blockquote>
+</dd>
+<dt>optional arguments:</dt><dd><dl class="option-list">
+<dt><kbd><span class="option">-h</span>, <span class="option">--help</span></kbd></dt>
+<dd><p>show this help message and exit</p>
+</dd>
+<dt><kbd><span class="option">-O <var>OBSERVER</var></span>, <span class="option">--observer <var>OBSERVER</var></span></kbd></dt>
+<dd><p>Location of the observer, by default ‘paranal’. This
+can be any name supported by astropy.</p>
+</dd>
+<dt><kbd><span class="option">-C <var>CATALOG</var></span>, <span class="option">--catalog <var>CATALOG</var></span></kbd></dt>
+<dd><p>Name of the data catalog to use, by default ‘nexa’
+(Nasa Exoplanet Archive)</p>
+</dd>
+<dt><kbd><span class="option">-m <var>MODE</var></span>, <span class="option">--mode <var>MODE</var></span></kbd></dt>
+<dd><p>Which mode to use ‘planets’ or ‘criteria’. In mode
+‘planets’ we define the specific planets to
+investigate, in mode ‘criteria’ we specify conditions
+that the stars and planets need to fullfill.</p>
+</dd>
+<dt><kbd><span class="option">-o <var>OUTPUT</var></span>, <span class="option">--output <var>OUTPUT</var></span></kbd></dt>
+<dd><p>Save the data to this file</p>
+</dd>
+<dt><kbd><span class="option">-f</span>, <span class="option">--file</span></kbd></dt>
+<dd><p>Load planet names from a file instead, one planet name
+per line. Lines starting with # are considered
+comments</p>
+</dd>
+<dt><kbd><span class="option">-p</span>, <span class="option">--plot</span></kbd></dt>
+<dd><p>If set will create an interactive plot</p>
+</dd>
+<dt><kbd><span class="option">--plot-file-1 <var>PLOT_FILE_1</var></span></kbd></dt>
+<dd><p>filename for the first plot</p>
+</dd>
+<dt><kbd><span class="option">--plot-file-2 <var>PLOT_FILE_2</var></span></kbd></dt>
+<dd><p>filename for the second plot</p>
+</dd>
+<dt><kbd><span class="option">-v</span>, <span class="option">--verbose</span></kbd></dt>
+<dd><p>verbosity level up to -vv</p>
+</dd>
+<dt><kbd><span class="option">-s</span>, <span class="option">--silent</span></kbd></dt>
+<dd><p>removes all console output, except for errors</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">CRIRES+ Planning Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Command Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crires_planning_tool.html">crires_planning_tool package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="installation.html" title="previous chapter">Installation</a></li>
+      <li>Next: <a href="../crires_planning_tool.html" title="next chapter">crires_planning_tool package</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Ansgar Wehrhahn, Linn Boldt-Christmas, Jonas Zbinden.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/usage/command_line.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
