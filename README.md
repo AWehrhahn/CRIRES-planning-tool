@@ -1,8 +1,6 @@
-
-
 # CRIRES-planning-tool documentation
 
-Version 0.1.0 2021
+Documentation: https://awehrhahn.github.io/CRIRES-planning-tool/
 
 #### Introduction:
 
