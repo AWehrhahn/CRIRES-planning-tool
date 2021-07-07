@@ -6,6 +6,7 @@ astroplan
 astroquery
 dateparser>=1.0.0
 plotly
+tqdm
 
 # this is for the etc calls
 requests
