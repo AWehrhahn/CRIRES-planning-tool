@@ -1,0 +1,334 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>crires_planning_tool.nasa_exoplanets_archive &#8212; CRIRES+ Planning Tool 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for crires_planning_tool.nasa_exoplanets_archive</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Handles the data access to the Nasa Exoplanet Archive</span>
+<span class="sd">Especially since it does not use TAP in  astroquery (yet)</span>
+
+<span class="sd">@author: Ansgar Wehrhahn</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">tempfile</span> <span class="kn">import</span> <span class="n">NamedTemporaryFile</span>
+
+<span class="kn">from</span> <span class="nn">astropy.table</span> <span class="kn">import</span> <span class="n">Table</span>
+<span class="kn">from</span> <span class="nn">astropy.utils.data</span> <span class="kn">import</span> <span class="p">(</span><span class="n">clear_download_cache</span><span class="p">,</span> <span class="n">download_file</span><span class="p">,</span>
+                                <span class="n">import_file_to_cache</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">astroquery.nasa_exoplanet_archive</span> <span class="kn">import</span> \
+    <span class="n">NasaExoplanetArchive</span> <span class="k">as</span> <span class="n">_NasaExoplanetArchive</span>
+<span class="kn">from</span> <span class="nn">astroquery.utils.tap.core</span> <span class="kn">import</span> <span class="n">TapPlus</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="NasaExoplanetsArchive"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive">[docs]</a><span class="k">class</span> <span class="nc">NasaExoplanetsArchive</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="c1">#:int: the number of tries before timing out the query</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span>
+        <span class="c1">#:bool: verbose TAP connection</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="c1">#:str: the url of the TAP interface</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://exoplanetarchive.ipac.caltech.edu/TAP&quot;</span>
+        <span class="c1">#:str: the table to query, should be &quot;pscomppars&quot; or &quot;ps&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table</span> <span class="o">=</span> <span class="s2">&quot;pscomppars&quot;</span>
+        <span class="c1">#:list: a list of citations to use</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">citation</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;This research has made use of the NASA Exoplanet &quot;</span>
+            <span class="s2">&quot;Archive, which is operated by the California Institute of &quot;</span>
+            <span class="s2">&quot;Technology, under contract with the National Aeronautics and &quot;</span>
+            <span class="s2">&quot;Space Administration under the Exoplanet Exploration Program.&quot;</span>
+        <span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_url</span>
+
+    <span class="nd">@url</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span> <span class="o">=</span> <span class="n">TapPlus</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_url</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">archive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span>
+
+    <span class="nd">@archive</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">archive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Set the archive via the url property&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.reset_cache"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.reset_cache">[docs]</a>    <span class="k">def</span> <span class="nf">reset_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">clear_download_cache</span><span class="p">(</span><span class="n">pkgname</span><span class="o">=</span><span class="s2">&quot;crires-planning-tool&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.get_filename_from_cache"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.get_filename_from_cache">[docs]</a>    <span class="k">def</span> <span class="nf">get_filename_from_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;file:&quot;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="n">download_file</span><span class="p">(</span>
+                <span class="n">url</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pkgname</span><span class="o">=</span><span class="s2">&quot;crires-planning-tool&quot;</span><span class="p">,</span> <span class="n">show_progress</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">fname</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.import_file_to_cache"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.import_file_to_cache">[docs]</a>    <span class="k">def</span> <span class="nf">import_file_to_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;file:&quot;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">import_file_to_cache</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">pkgname</span><span class="o">=</span><span class="s2">&quot;crires-planning-tool&quot;</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.from_cache_table"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.from_cache_table">[docs]</a>    <span class="k">def</span> <span class="nf">from_cache_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asql_query</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_filename_from_cache</span><span class="p">(</span><span class="n">asql_query</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">Table</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;pandas.csv&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="n">urllib</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">URLError</span><span class="p">):</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.to_cache_table"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.to_cache_table">[docs]</a>    <span class="k">def</span> <span class="nf">to_cache_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asql_query</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.csv&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tempfile</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">tempfile</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;pandas.csv&quot;</span><span class="p">)</span>
+            <span class="n">tempfile</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">import_file_to_cache</span><span class="p">(</span><span class="n">asql_query</span><span class="p">,</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.from_cache_json"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.from_cache_json">[docs]</a>    <span class="k">def</span> <span class="nf">from_cache_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fname</span><span class="p">):</span>
+        <span class="n">fname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_filename_from_cache</span><span class="p">(</span><span class="s2">&quot;aliases.json&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.to_cache_json"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.to_cache_json">[docs]</a>    <span class="k">def</span> <span class="nf">to_cache_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.json&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tempfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">tempfile</span><span class="p">)</span>
+            <span class="n">tempfile</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">import_file_to_cache</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.tap"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.tap">[docs]</a>    <span class="k">def</span> <span class="nf">tap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asql_query</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get data from the TAP interface</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        asql_query : str</span>
+<span class="sd">            The query to send to the TAP interface in Astronomy SQL format.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        data : astropy.Table</span>
+<span class="sd">            the returnded data</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ConnectionError</span>
+<span class="sd">            Could not establish a connection</span>
+<span class="sd">        RuntimeError</span>
+<span class="sd">            Could not get results with the given query</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_cache_table</span><span class="p">(</span><span class="n">asql_query</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Retrieving catalog data from local cache&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">data</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># data = NasaExoplanetArchive.query_object(name)</span>
+                <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">launch_job</span><span class="p">(</span><span class="n">asql_query</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">results</span>
+                <span class="k">break</span>
+            <span class="k">except</span> <span class="ne">ConnectionError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Connection failed, attempt </span><span class="si">{i}</span><span class="s2"> of </span><span class="si">{self.timeout}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ConnectionError</span><span class="p">(</span><span class="s2">&quot;Connection to the Nasa Exoplanet Archive timed out&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid query: </span><span class="si">{asql_query}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Store it in the cache for later</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">to_cache_table</span><span class="p">(</span><span class="n">asql_query</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.query_object"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_object">[docs]</a>    <span class="k">def</span> <span class="nf">query_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">regularize</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get data for a specific target</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            Name of the target in the format &quot;star planet&quot;</span>
+<span class="sd">        regularize : bool, optional</span>
+<span class="sd">            Whether to check the name against the known aliases in the database.</span>
+<span class="sd">            The database otherwise only accepts exact matches. By default True</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        data : astropy.Table</span>
+<span class="sd">            Table with the results for the target</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_object</span><span class="p">([</span><span class="n">name</span><span class="p">],</span> <span class="n">regularize</span><span class="o">=</span><span class="n">regularize</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.query_objects"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_objects">[docs]</a>    <span class="k">def</span> <span class="nf">query_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">regularize</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Request information for a set of planets or stars</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        names : list</span>
+<span class="sd">            list of planet names</span>
+<span class="sd">        regularize : bool, optional</span>
+<span class="sd">            whether to check the database for the correct names, by default True.</span>
+<span class="sd">            This creates overhead but is more convenient.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        [type]</span>
+<span class="sd">            [description]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">original</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">regularize</span><span class="p">:</span>
+            <span class="n">aliases</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_cache_json</span><span class="p">(</span><span class="s2">&quot;aliases.json&quot;</span><span class="p">)</span>
+            <span class="n">aliases</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">aliases</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">aliases</span>
+            <span class="n">hasChanged</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">aliases</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">alias</span> <span class="o">=</span> <span class="n">aliases</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">alias</span> <span class="o">=</span> <span class="n">_NasaExoplanetArchive</span><span class="o">.</span><span class="n">_regularize_object_name</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                    <span class="n">hasChanged</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">aliases</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">alias</span>
+                <span class="n">original</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+                <span class="n">names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">alias</span>
+            <span class="k">if</span> <span class="n">hasChanged</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">to_cache_json</span><span class="p">(</span><span class="s2">&quot;aliases.json&quot;</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
+
+        <span class="n">asql_query</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;SELECT * FROM </span><span class="si">{self.table}</span><span class="s2"> WHERE &quot;</span>
+        <span class="n">asql_query</span> <span class="o">+=</span> <span class="s2">&quot; OR &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;pl_name like &#39;%</span><span class="si">{name}</span><span class="s2">%&#39;&quot;</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">])</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tap</span><span class="p">(</span><span class="n">asql_query</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">regularize</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;pl_name&quot;</span><span class="p">]</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="n">original</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;hostname&quot;</span><span class="p">]</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="n">original</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2"> </span><span class="si">{d[&#39;pl_letter&#39;]}</span><span class="s2">&quot;</span>
+                <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;pl_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="NasaExoplanetsArchive.query_criteria"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_criteria">[docs]</a>    <span class="k">def</span> <span class="nf">query_criteria</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">criteria</span><span class="p">):</span>
+        <span class="n">asql_query</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;SELECT * FROM </span><span class="si">{self.table}</span><span class="s2"> WHERE &quot;</span>
+        <span class="n">asql_query</span> <span class="o">+=</span> <span class="s2">&quot; AND &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">criteria</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tap</span><span class="p">(</span><span class="n">asql_query</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">CRIRES+ Planning Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../usage/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage/command_line.html">Command Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../crires_planning_tool.html">crires_planning_tool package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Ansgar Wehrhahn, Linn Boldt-Christmas, Jonas Zbinden.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

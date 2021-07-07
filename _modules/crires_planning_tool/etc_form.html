@@ -1,0 +1,399 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>crires_planning_tool.etc_form &#8212; CRIRES+ Planning Tool 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for crires_planning_tool.etc_form</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Created on Wed May  2 10:30:00 2020</span>
+
+<span class="sd">This file contains the class etc_form to read in, change and update the input file for the ETC calculator &#39;etc-form.json&#39;.</span>
+<span class="sd">IMPORTANT: Do not change the files &#39;etc-form-default-snr.json&#39; or &#39;etc-form-default-ndir.json&#39; </span>
+<span class="sd">except if necessary due to updates on the etc-cli side. .</span>
+
+
+<span class="sd">@author: jonaszbinden</span>
+<span class="sd">GitHub: jonaszubindu</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">json</span> <span class="kn">import</span> <span class="n">JSONDecodeError</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">dirname</span><span class="p">,</span> <span class="n">join</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">astropy</span> <span class="kn">import</span> <span class="n">units</span> <span class="k">as</span> <span class="n">u</span>
+<span class="kn">from</span> <span class="nn">requests_futures.sessions</span> <span class="kn">import</span> <span class="n">FuturesSession</span>
+
+<span class="c1"># TODO! workaround until we figure put how to handle ssl certificate correctly</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Unverified HTTPS request&quot;</span><span class="p">)</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">dit_std</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># default value for DIT</span>
+<span class="n">nditSTD</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># default value for NDIT</span>
+
+
+<div class="viewcode-block" id="EtcForm"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.etc_form.EtcForm">[docs]</a><span class="k">class</span> <span class="nc">EtcForm</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Include ETC constraints here as a different mode to compute</span>
+<span class="sd">    additional independent constraints</span>
+
+<span class="sd">    This can be advanced by any method to change some input parameter of</span>
+<span class="sd">    &#39;etc-form.json&#39; for any type of targets.</span>
+
+<span class="sd">    WARNING: If the general structure of the file changes due to for instance</span>
+<span class="sd">             change from inputtype &quot;Spectrum&quot; to &quot;Emission Line&quot;, this must be regarded</span>
+<span class="sd">             when adding methods to alter &#39;etc-form.json&#39;. Might conflict with other methods!</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">instrument</span><span class="o">=</span><span class="s2">&quot;crires&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Initializes &#39;etc-form-default.json&#39; via json to a namespace object according to inputtype &#39;&#39;ndit&#39;&#39; or &#39;&#39;snr&#39;&#39;.</span>
+
+<span class="sd">            Parameters:</span>
+<span class="sd">            -----------</span>
+<span class="sd">            inputtype : string</span>
+<span class="sd">                specify if the ETC-calculator should be run in S/N mode &#39;&#39;snr-Templ&#39;&#39; or in</span>
+<span class="sd">                NDIT mode &#39;&#39;ndit-Templ&#39;&#39; if spectral templetas from MARCS catalogue are used, if the spectrum is assumed to</span>
+<span class="sd">                be blackbody with an effective Temperature Teff, then use &#39;&#39;snr-Teff&#39;&#39; and &#39;&#39;ndit-Teff&#39;&#39; respectively.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filenames</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;snr-Teff&quot;</span><span class="p">:</span> <span class="s2">&quot;etc-form-default-snr-Teff.json&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ndit-Teff&quot;</span><span class="p">:</span> <span class="s2">&quot;etc-form-default-ndit-Teff.json&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;snr-Templ&quot;</span><span class="p">:</span> <span class="s2">&quot;etc-form-default-ndit-Templ.json&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ndit-Templ&quot;</span><span class="p">:</span> <span class="s2">&quot;etc-form-default-ndit-Templ.json&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">filenames</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;json_files&quot;</span><span class="p">,</span> <span class="n">filenames</span><span class="p">[</span><span class="n">filename</span><span class="p">])</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">args</span><span class="p">:</span>
+            <span class="n">etc_obj</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">input</span> <span class="o">=</span> <span class="n">etc_obj</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="mi">5</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span> <span class="o">=</span> <span class="n">instrument</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">baseurl</span> <span class="o">=</span> <span class="s2">&quot;https://etctestpub.eso.org/observing/etc/etcapi/&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="EtcForm.update_form"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.etc_form.EtcForm.update_form">[docs]</a>    <span class="k">def</span> <span class="nf">update_form</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        changes input values in &#39;etc-form.json&#39;</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+<span class="sd">        Keyword arguments recognized by update_etc_form:</span>
+
+<span class="sd">        airmass : float</span>
+
+<span class="sd">        moon_target_sep : list</span>
+<span class="sd">            Two values, first value is moon_target_separation in degrees, second value is moon_alt in degrees.</span>
+
+<span class="sd">        moon_phase : float</span>
+<span class="sd">            moon_sun_separation in degrees.</span>
+
+<span class="sd">        snr : int or float</span>
+<span class="sd">            Minimum signal to noise ratio S/N.</span>
+
+<span class="sd">        dit : int or float</span>
+<span class="sd">            DIT exposure time for single exposure.</span>
+
+<span class="sd">        ndit : int</span>
+<span class="sd">            NDIT number of single exposures for one single observation.</span>
+
+<span class="sd">            NDIT*DIT = Texp total exposure time for one single observation.</span>
+
+<span class="sd">        inputtype : string</span>
+<span class="sd">            snr or ndit depending on ETC calculator should calculate the NDIT for a certain minimum S/N</span>
+<span class="sd">            or S/N for a certain NDIT.</span>
+
+<span class="sd">        temperature : float</span>
+<span class="sd">            Effective temperature of the target object.</span>
+
+<span class="sd">        brightness : float</span>
+<span class="sd">            Object brightness, standard is J-band magnitude, system: AB.</span>
+<span class="sd">        </span>
+<span class="sd">        gsmag : float </span>
+<span class="sd">            Brightness of the guide star. </span>
+<span class="sd">        </span>
+<span class="sd">        sptype : string</span>
+<span class="sd">            Spectral type of guide star.</span>
+
+<span class="sd">        others can be added:...</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="s2">&quot;airmass&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;sky&quot;</span><span class="p">][</span><span class="s2">&quot;airmass&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;airmass&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># self.input.sky.airmass = 12 # Chabis Test</span>
+
+        <span class="k">if</span> <span class="s2">&quot;moon_target_sep&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;sky&quot;</span><span class="p">][</span><span class="s2">&quot;moon_target_sep&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;moon_target_sep&quot;</span><span class="p">][</span>
+                <span class="mi">0</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;sky&quot;</span><span class="p">][</span><span class="s2">&quot;moon_alt&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;moon_target_sep&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;moon_phase&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;sky&quot;</span><span class="p">][</span><span class="s2">&quot;moon_sun_sep&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;moon_phase&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;timesnr&quot;</span><span class="p">][</span><span class="s2">&quot;snr&quot;</span><span class="p">][</span><span class="s2">&quot;snr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;snr&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;dit&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;timesnr&quot;</span><span class="p">][</span><span class="s2">&quot;dit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dit&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">][</span><span class="s2">&quot;sed&quot;</span><span class="p">][</span><span class="s2">&quot;spectrum&quot;</span><span class="p">][</span><span class="s2">&quot;spectrumtype&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;template&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;temperature&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="n">temperature</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;temperature&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">K</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">temperature</span> <span class="o">&gt;</span> <span class="mi">8000</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;WARNING : Temperature exceeds MARCS spT catalog levels! Teff = </span><span class="si">{temperature}</span><span class="s2">, taking T = 8000 K&quot;</span>
+                    <span class="p">)</span>
+                    <span class="n">temperature</span> <span class="o">=</span> <span class="mi">8000</span>
+                <span class="k">elif</span> <span class="n">temperature</span> <span class="o">&lt;</span> <span class="mi">4000</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;WARNING : Temperature does not reach lower MARCS spT catalog levels! Teff = </span><span class="si">{temperature}</span><span class="s2">, taking T = 4000 K&quot;</span>
+                    <span class="p">)</span>
+                    <span class="n">temperature</span> <span class="o">=</span> <span class="mi">4000</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">temperature</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">temperature</span> <span class="o">/</span> <span class="mi">500</span><span class="p">)</span> <span class="o">*</span> <span class="mi">500</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">][</span><span class="s2">&quot;sed&quot;</span><span class="p">][</span><span class="s2">&quot;spectrum&quot;</span><span class="p">][</span><span class="s2">&quot;params&quot;</span><span class="p">][</span>
+                    <span class="s2">&quot;spectype&quot;</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;p</span><span class="si">{temperature}</span><span class="s2">:g+4.0:m0.0:t02:st:z+0.00:a+0.00:c+0.00:n+0.00:o+0.00&quot;</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">][</span><span class="s2">&quot;sed&quot;</span><span class="p">][</span><span class="s2">&quot;spectrum&quot;</span><span class="p">][</span><span class="s2">&quot;spectrumtype&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;blackbody&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;temperature&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">][</span><span class="s2">&quot;sed&quot;</span><span class="p">][</span><span class="s2">&quot;spectrum&quot;</span><span class="p">][</span><span class="s2">&quot;params&quot;</span><span class="p">][</span>
+                    <span class="s2">&quot;temperature&quot;</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;temperature&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">K</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;gsmag&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;seeingiqao&quot;</span><span class="p">][</span><span class="s2">&quot;params&quot;</span><span class="p">][</span><span class="s2">&quot;gsmag&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;gsmag&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span>
+                <span class="n">u</span><span class="o">.</span><span class="n">mag</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;sptype&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;seeingiqao&quot;</span><span class="p">][</span><span class="s2">&quot;params&quot;</span><span class="p">][</span><span class="s2">&quot;sptype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;sptype&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="s2">&quot;brightness&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">][</span><span class="s2">&quot;brightness&quot;</span><span class="p">][</span><span class="s2">&quot;params&quot;</span><span class="p">][</span><span class="s2">&quot;mag&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">&quot;brightness&quot;</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">mag</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;inputtype&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;timesnr&quot;</span><span class="p">][</span><span class="s2">&quot;inputtype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;inputtype&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;timesnr&quot;</span><span class="p">][</span><span class="s2">&quot;inputtype&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;snr&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;timesnr&quot;</span><span class="p">][</span><span class="s2">&quot;dit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dit&quot;</span><span class="p">,</span> <span class="n">dit_std</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;timesnr&quot;</span><span class="p">][</span><span class="s2">&quot;inputtype&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;ndit&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;timesnr&quot;</span><span class="p">][</span><span class="s2">&quot;dit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dit&quot;</span><span class="p">,</span> <span class="n">dit_std</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="s2">&quot;timesnr&quot;</span><span class="p">][</span><span class="s2">&quot;ndit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ndit&quot;</span><span class="p">,</span> <span class="n">dit_std</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">input</span></div>
+
+<div class="viewcode-block" id="EtcForm.write"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.etc_form.EtcForm.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Writes self.etc to a new JSON file named &#39;etc-form.json&#39; such</span>
+<span class="sd">            that it can be interpreted by the ETC online-calculator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dumpfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">dumpfile</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="EtcForm.read"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.etc_form.EtcForm.read">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="n">EtcForm</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">form</span></div>
+
+<div class="viewcode-block" id="EtcForm.response_hook"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.etc_form.EtcForm.response_hook">[docs]</a>    <span class="k">def</span> <span class="nf">response_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resp</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># parse the json storing the result on the response object</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">JSONDecodeError</span><span class="p">:</span>
+            <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="EtcForm.send_request"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.etc_form.EtcForm.send_request">[docs]</a>    <span class="k">def</span> <span class="nf">send_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">post_data</span><span class="p">,</span> <span class="n">uploadfile</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Send a request to the ETC with a set of input data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        post_data : dict</span>
+<span class="sd">            input data for the etc</span>
+<span class="sd">        uploadfile : [type], optional</span>
+<span class="sd">            [description], by default None</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        [type]</span>
+<span class="sd">            [description]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">FuturesSession</span><span class="p">()</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">hooks</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">response_hook</span>
+
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">post_data</span><span class="p">),</span> <span class="s2">&quot;verify&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">uploadfile</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;headers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;files&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="nb">open</span><span class="p">(</span><span class="n">uploadfile</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)}</span>
+        
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_etc_url</span><span class="p">()</span>
+        <span class="n">future</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">future</span></div>
+
+<div class="viewcode-block" id="EtcForm.get_etc_url"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.etc_form.EtcForm.get_etc_url">[docs]</a>    <span class="k">def</span> <span class="nf">get_etc_url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Create the url for the ETC and this instrument</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        url : str</span>
+<span class="sd">            Url of the ETC</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span><span class="p">(</span><span class="s1">&#39;4most&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseurl</span> <span class="o">+</span> <span class="s1">&#39;4Most/&#39;</span>
+        <span class="k">elif</span><span class="p">(</span><span class="s1">&#39;crires&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseurl</span> <span class="o">+</span> <span class="s1">&#39;Crires2/&#39;</span>
+        <span class="c1"># elif(&#39;harps&#39; in etcname.lower()):  # not yet working</span>
+        <span class="c1">#     return &#39;HarpsNirps/&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;error: no match for etcname: &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="EtcForm.call"><a class="viewcode-back" href="../../crires_planning_tool.html#crires_planning_tool.etc_form.EtcForm.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">        Call the exposure time calculator API</span>
+<span class="sd">        The input settings are defined in self.input</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        data: dict</span>
+<span class="sd">            ETC retrieved data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+      
+        <span class="n">response</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">n_attempts</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_attempts</span><span class="p">):</span>
+            <span class="n">future</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_request</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">data</span>
+            <span class="k">except</span> <span class="ne">ConnectionError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span>
+            
+
+            <span class="c1"># check for success</span>
+            <span class="k">if</span> <span class="n">response</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;success&quot;</span><span class="p">]:</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># unfortunately the etc does not tell us why it failed</span>
+                <span class="c1"># so we just try again</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;ETC failed, trying again...&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">response</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ConnectionError</span><span class="p">(</span><span class="s2">&quot;Could not connect to the ETC&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">response</span>
+        <span class="k">return</span> <span class="n">response</span></div></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">CRIRES+ Planning Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../usage/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage/command_line.html">Command Line Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../crires_planning_tool.html">crires_planning_tool package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Ansgar Wehrhahn, Linn Boldt-Christmas, Jonas Zbinden.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

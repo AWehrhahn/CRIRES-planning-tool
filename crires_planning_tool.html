@@ -36,20 +36,452 @@
 <div class="section" id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
 </div>
-<div class="section" id="crires-planning-tool-etc-form-module">
-<h2>crires_planning_tool.etc_form module<a class="headerlink" href="#crires-planning-tool-etc-form-module" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-crires_planning_tool.etc_form">
+<span id="crires-planning-tool-etc-form-module"></span><h2>crires_planning_tool.etc_form module<a class="headerlink" href="#module-crires_planning_tool.etc_form" title="Permalink to this headline">¶</a></h2>
+<p>Created on Wed May  2 10:30:00 2020</p>
+<p>This file contains the class etc_form to read in, change and update the input file for the ETC calculator ‘etc-form.json’.
+IMPORTANT: Do not change the files ‘etc-form-default-snr.json’ or ‘etc-form-default-ndir.json’
+except if necessary due to updates on the etc-cli side. .</p>
+<p>&#64;author: jonaszbinden
+GitHub: jonaszubindu</p>
+<dl class="class">
+<dt id="crires_planning_tool.etc_form.EtcForm">
+<em class="property">class </em><code class="sig-prename descclassname">crires_planning_tool.etc_form.</code><code class="sig-name descname">EtcForm</code><span class="sig-paren">(</span><em class="sig-param">filename</em>, <em class="sig-param">instrument='crires'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/etc_form.html#EtcForm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.etc_form.EtcForm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Include ETC constraints here as a different mode to compute
+additional independent constraints</p>
+<p>This can be advanced by any method to change some input parameter of
+‘etc-form.json’ for any type of targets.</p>
+<dl class="simple">
+<dt>WARNING: If the general structure of the file changes due to for instance</dt><dd><p>change from inputtype “Spectrum” to “Emission Line”, this must be regarded
+when adding methods to alter ‘etc-form.json’. Might conflict with other methods!</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="crires_planning_tool.etc_form.EtcForm.call">
+<code class="sig-name descname">call</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/etc_form.html#EtcForm.call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.etc_form.EtcForm.call" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call the exposure time calculator API
+The input settings are defined in self.input</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>data</strong> – ETC retrieved data</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.etc_form.EtcForm.get_etc_url">
+<code class="sig-name descname">get_etc_url</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/etc_form.html#EtcForm.get_etc_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.etc_form.EtcForm.get_etc_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create the url for the ETC and this instrument</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>url</strong> – Url of the ETC</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.etc_form.EtcForm.read">
+<em class="property">classmethod </em><code class="sig-name descname">read</code><span class="sig-paren">(</span><em class="sig-param">filename</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/etc_form.html#EtcForm.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.etc_form.EtcForm.read" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.etc_form.EtcForm.response_hook">
+<code class="sig-name descname">response_hook</code><span class="sig-paren">(</span><em class="sig-param">resp</em>, <em class="sig-param">*args</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/etc_form.html#EtcForm.response_hook"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.etc_form.EtcForm.response_hook" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.etc_form.EtcForm.send_request">
+<code class="sig-name descname">send_request</code><span class="sig-paren">(</span><em class="sig-param">post_data</em>, <em class="sig-param">uploadfile=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/etc_form.html#EtcForm.send_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.etc_form.EtcForm.send_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send a request to the ETC with a set of input data</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>post_data</strong> (<em>dict</em>) – input data for the etc</p></li>
+<li><p><strong>uploadfile</strong> (<em>[</em><em>type</em><em>]</em><em>, </em><em>optional</em>) – [description], by default None</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>[description]</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>[type]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.etc_form.EtcForm.update_form">
+<code class="sig-name descname">update_form</code><span class="sig-paren">(</span><em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/etc_form.html#EtcForm.update_form"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.etc_form.EtcForm.update_form" title="Permalink to this definition">¶</a></dt>
+<dd><p>changes input values in ‘etc-form.json’</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arguments recognized by update_etc_form</strong> (<em>Keyword</em>) – </p></li>
+<li><p><strong>airmass</strong> (<em>float</em>) – </p></li>
+<li><p><strong>moon_target_sep</strong> (<em>list</em>) – Two values, first value is moon_target_separation in degrees, second value is moon_alt in degrees.</p></li>
+<li><p><strong>moon_phase</strong> (<em>float</em>) – moon_sun_separation in degrees.</p></li>
+<li><p><strong>snr</strong> (<em>int</em><em> or </em><em>float</em>) – Minimum signal to noise ratio S/N.</p></li>
+<li><p><strong>dit</strong> (<em>int</em><em> or </em><em>float</em>) – DIT exposure time for single exposure.</p></li>
+<li><p><strong>ndit</strong> (<em>int</em>) – <p>NDIT number of single exposures for one single observation.</p>
+<p>NDIT*DIT = Texp total exposure time for one single observation.</p>
+</p></li>
+<li><p><strong>inputtype</strong> (<em>string</em>) – snr or ndit depending on ETC calculator should calculate the NDIT for a certain minimum S/N
+or S/N for a certain NDIT.</p></li>
+<li><p><strong>temperature</strong> (<em>float</em>) – Effective temperature of the target object.</p></li>
+<li><p><strong>brightness</strong> (<em>float</em>) – Object brightness, standard is J-band magnitude, system: AB.</p></li>
+<li><p><strong>gsmag</strong> (<em>float</em>) – Brightness of the guide star.</p></li>
+<li><p><strong>sptype</strong> (<em>string</em>) – Spectral type of guide star.</p></li>
+<li><p><strong>can be added</strong> (<em>others</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.etc_form.EtcForm.write">
+<code class="sig-name descname">write</code><span class="sig-paren">(</span><em class="sig-param">filename</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/etc_form.html#EtcForm.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.etc_form.EtcForm.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Writes self.etc to a new JSON file named ‘etc-form.json’ such
+that it can be interpreted by the ETC online-calculator.</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
-<div class="section" id="crires-planning-tool-interactive-graph-module">
-<h2>crires_planning_tool.interactive_graph module<a class="headerlink" href="#crires-planning-tool-interactive-graph-module" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-crires_planning_tool.interactive_graph">
+<span id="crires-planning-tool-interactive-graph-module"></span><h2>crires_planning_tool.interactive_graph module<a class="headerlink" href="#module-crires_planning_tool.interactive_graph" title="Permalink to this headline">¶</a></h2>
+<p>Created on Mon Apr 26 12:20:40 2021
+&#64;author: linnboldtc</p>
+<dl class="function">
+<dt id="crires_planning_tool.interactive_graph.create_interactive_graph">
+<code class="sig-prename descclassname">crires_planning_tool.interactive_graph.</code><code class="sig-name descname">create_interactive_graph</code><span class="sig-paren">(</span><em class="sig-param">df</em>, <em class="sig-param">filename1=None</em>, <em class="sig-param">filename2=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/interactive_graph.html#create_interactive_graph"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.interactive_graph.create_interactive_graph" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </div>
-<div class="section" id="crires-planning-tool-nasa-exoplanets-archive-module">
-<h2>crires_planning_tool.nasa_exoplanets_archive module<a class="headerlink" href="#crires-planning-tool-nasa-exoplanets-archive-module" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-crires_planning_tool.nasa_exoplanets_archive">
+<span id="crires-planning-tool-nasa-exoplanets-archive-module"></span><h2>crires_planning_tool.nasa_exoplanets_archive module<a class="headerlink" href="#module-crires_planning_tool.nasa_exoplanets_archive" title="Permalink to this headline">¶</a></h2>
+<p>Handles the data access to the Nasa Exoplanet Archive
+Especially since it does not use TAP in  astroquery (yet)</p>
+<p>&#64;author: Ansgar Wehrhahn</p>
+<dl class="class">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive">
+<em class="property">class </em><code class="sig-prename descclassname">crires_planning_tool.nasa_exoplanets_archive.</code><code class="sig-name descname">NasaExoplanetsArchive</code><span class="sig-paren">(</span><em class="sig-param">timeout=10</em>, <em class="sig-param">verbose=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.archive">
+<em class="property">property </em><code class="sig-name descname">archive</code><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.archive" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.citation">
+<code class="sig-name descname">citation</code><em class="property"> = None</em><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.citation" title="Permalink to this definition">¶</a></dt>
+<dd><p>a list of citations to use</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.from_cache_json">
+<code class="sig-name descname">from_cache_json</code><span class="sig-paren">(</span><em class="sig-param">fname</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.from_cache_json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.from_cache_json" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.from_cache_table">
+<code class="sig-name descname">from_cache_table</code><span class="sig-paren">(</span><em class="sig-param">asql_query</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.from_cache_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.from_cache_table" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.get_filename_from_cache">
+<code class="sig-name descname">get_filename_from_cache</code><span class="sig-paren">(</span><em class="sig-param">filename</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.get_filename_from_cache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.get_filename_from_cache" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.import_file_to_cache">
+<code class="sig-name descname">import_file_to_cache</code><span class="sig-paren">(</span><em class="sig-param">key</em>, <em class="sig-param">filename</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.import_file_to_cache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.import_file_to_cache" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_criteria">
+<code class="sig-name descname">query_criteria</code><span class="sig-paren">(</span><em class="sig-param">criteria</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.query_criteria"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_criteria" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_object">
+<code class="sig-name descname">query_object</code><span class="sig-paren">(</span><em class="sig-param">name</em>, <em class="sig-param">regularize=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.query_object"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_object" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get data for a specific target</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – Name of the target in the format “star planet”</p></li>
+<li><p><strong>regularize</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to check the name against the known aliases in the database.
+The database otherwise only accepts exact matches. By default True</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>data</strong> – Table with the results for the target</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>astropy.Table</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_objects">
+<code class="sig-name descname">query_objects</code><span class="sig-paren">(</span><em class="sig-param">names</em>, <em class="sig-param">regularize=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.query_objects"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.query_objects" title="Permalink to this definition">¶</a></dt>
+<dd><p>Request information for a set of planets or stars</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>names</strong> (<em>list</em>) – list of planet names</p></li>
+<li><p><strong>regularize</strong> (<em>bool</em><em>, </em><em>optional</em>) – whether to check the database for the correct names, by default True.
+This creates overhead but is more convenient.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>[description]</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>[type]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.reset_cache">
+<code class="sig-name descname">reset_cache</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.reset_cache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.reset_cache" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.table">
+<code class="sig-name descname">table</code><em class="property"> = None</em><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.table" title="Permalink to this definition">¶</a></dt>
+<dd><p>the table to query, should be “pscomppars” or “ps”</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.tap">
+<code class="sig-name descname">tap</code><span class="sig-paren">(</span><em class="sig-param">asql_query</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.tap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.tap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get data from the TAP interface</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>asql_query</strong> (<em>str</em>) – The query to send to the TAP interface in Astronomy SQL format.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>data</strong> – the returnded data</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>astropy.Table</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ConnectionError</strong> – Could not establish a connection</p></li>
+<li><p><strong>RuntimeError</strong> – Could not get results with the given query</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.timeout">
+<code class="sig-name descname">timeout</code><em class="property"> = None</em><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>the number of tries before timing out the query</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.to_cache_json">
+<code class="sig-name descname">to_cache_json</code><span class="sig-paren">(</span><em class="sig-param">fname</em>, <em class="sig-param">data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.to_cache_json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.to_cache_json" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.to_cache_table">
+<code class="sig-name descname">to_cache_table</code><span class="sig-paren">(</span><em class="sig-param">asql_query</em>, <em class="sig-param">data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/nasa_exoplanets_archive.html#NasaExoplanetsArchive.to_cache_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.to_cache_table" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.url">
+<em class="property">property </em><code class="sig-name descname">url</code><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.url" title="Permalink to this definition">¶</a></dt>
+<dd><p>the url of the TAP interface</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.verbose">
+<code class="sig-name descname">verbose</code><em class="property"> = None</em><a class="headerlink" href="#crires_planning_tool.nasa_exoplanets_archive.NasaExoplanetsArchive.verbose" title="Permalink to this definition">¶</a></dt>
+<dd><p>verbose TAP connection</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
-<div class="section" id="crires-planning-tool-transit-planner-module">
-<h2>crires_planning_tool.transit_planner module<a class="headerlink" href="#crires-planning-tool-transit-planner-module" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-crires_planning_tool.transit_planner">
+<span id="crires-planning-tool-transit-planner-module"></span><h2>crires_planning_tool.transit_planner module<a class="headerlink" href="#module-crires_planning_tool.transit_planner" title="Permalink to this headline">¶</a></h2>
+<p>Does all the transit planning</p>
+<p>&#64;author: Ansgar Wehrhahn</p>
+<dl class="function">
+<dt id="crires_planning_tool.transit_planner.calculate_airmass">
+<code class="sig-prename descclassname">crires_planning_tool.transit_planner.</code><code class="sig-name descname">calculate_airmass</code><span class="sig-paren">(</span><em class="sig-param">obstime</em>, <em class="sig-param">observer</em>, <em class="sig-param">target</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/transit_planner.html#calculate_airmass"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.transit_planner.calculate_airmass" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the airmass at obstime</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>obstime</strong> (<em>Time</em>) – observation times</p></li>
+<li><p><strong>observer</strong> (<em>astroplan.Observer</em>) – telescope location</p></li>
+<li><p><strong>target</strong> (<em>astroplan.FixedTarget</em>) – Star location</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>airmass</strong> – airmass at obstime</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Quantity</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="crires_planning_tool.transit_planner.estimate_snr">
+<code class="sig-prename descclassname">crires_planning_tool.transit_planner.</code><code class="sig-name descname">estimate_snr</code><span class="sig-paren">(</span><em class="sig-param">magnitude: Unit(&quot;mag&quot;)</em>, <em class="sig-param">exptime: Unit(&quot;s&quot;)</em>, <em class="sig-param">airmass: Unit(dimensionless)</em>, <em class="sig-param">method='crires'</em>, <em class="sig-param">mband='K'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/transit_planner.html#estimate_snr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.transit_planner.estimate_snr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes SNR of stellar spectrum from magnitude, exposure time (in seconds) and airmass
+&#64;author fabian lesjak</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>magnitude</strong> (<em>Quantity</em>) – stellar magnitude in the band specified by mband</p></li>
+<li><p><strong>exptime</strong> (<em>Quantity</em>) – exposure time</p></li>
+<li><p><strong>airmass</strong> (<em>Quantity</em>) – airmass</p></li>
+<li><p><strong>method</strong> (<em>{&quot;crires&quot;</em><em>, </em><em>&quot;carmenes&quot;}</em><em>, </em><em>optional</em>) – which formula to use, by default “crires”</p></li>
+<li><p><strong>mband</strong> (<em>str</em><em>, </em><em>optional</em>) – which spectral band to use, by default “K”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>snr</strong> – Signal to Noise Ratio</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Quantity</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="crires_planning_tool.transit_planner.get_default_constraints">
+<code class="sig-prename descclassname">crires_planning_tool.transit_planner.</code><code class="sig-name descname">get_default_constraints</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/transit_planner.html#get_default_constraints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.transit_planner.get_default_constraints" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the default constraints if none are explicitly set.
+Those are Altitude above 30 deg, airmass less than 1.7,
+astronomical twilight at the observing location, and at
+least 45 deg seperation from the moon</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>constraints</strong> – list of constraints</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="crires_planning_tool.transit_planner.main">
+<code class="sig-prename descclassname">crires_planning_tool.transit_planner.</code><code class="sig-name descname">main</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/transit_planner.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.transit_planner.main" title="Permalink to this definition">¶</a></dt>
+<dd><p>Command line interface for the crires planning tool
+all parameters are set via sys.argv</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>df</strong> – The dataframe containing all observable transits</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="crires_planning_tool.transit_planner.single_planet">
+<code class="sig-prename descclassname">crires_planning_tool.transit_planner.</code><code class="sig-name descname">single_planet</code><span class="sig-paren">(</span><em class="sig-param">data</em>, <em class="sig-param">date_start</em>, <em class="sig-param">date_end</em>, <em class="sig-param">constraints</em>, <em class="sig-param">observer</em>, <em class="sig-param">verbose=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/transit_planner.html#single_planet"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.transit_planner.single_planet" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs the observability and SNR estimation for a single planet</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>dict</em>) – data for this planet</p></li>
+<li><p><strong>date_start</strong> (<em>Time</em>) – start date</p></li>
+<li><p><strong>date_end</strong> (<em>Time</em>) – end date</p></li>
+<li><p><strong>constraints</strong> (<em>list</em>) – list of observability constraints</p></li>
+<li><p><strong>observer</strong> (<em>astroplan.Observer</em>) – telescope location</p></li>
+<li><p><strong>verbose</strong> (<em>int</em><em>, </em><em>optional</em>) – how much information to print, by default 0</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>result</strong> – contains everything about this planet, one entry per observable transit</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="crires_planning_tool.transit_planner.transit_calculation">
+<code class="sig-prename descclassname">crires_planning_tool.transit_planner.</code><code class="sig-name descname">transit_calculation</code><span class="sig-paren">(</span><em class="sig-param">planets_or_criteria</em>, <em class="sig-param">date_start</em>, <em class="sig-param">date_end</em>, <em class="sig-param">constraints=None</em>, <em class="sig-param">observer='paranal'</em>, <em class="sig-param">catalog='nexa'</em>, <em class="sig-param">verbose=0</em>, <em class="sig-param">mode='planets'</em>, <em class="sig-param">parallel=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/crires_planning_tool/transit_planner.html#transit_calculation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#crires_planning_tool.transit_planner.transit_calculation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine the SNR of all observable transits for one or more planets between two times</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>planets</strong> (<em>list</em><em>, </em><em>str</em>) – planet names in the format ‘star letter’</p></li>
+<li><p><strong>date_start</strong> (<em>Time</em>) – earliest time for a possible transit</p></li>
+<li><p><strong>date_end</strong> (<em>Time</em>) – last time for a possible transit</p></li>
+<li><p><strong>constraints</strong> (<em>list</em><em>, </em><em>optional</em>) – list of astroplan constraints. If not set uses a set of reasonable constraints.</p></li>
+<li><p><strong>observer</strong> (<em>str</em><em>, </em><em>ap.Observer</em><em>, </em><em>optional</em>) – the location of the observatory/telescope, by default “paranal”</p></li>
+<li><p><strong>catalog</strong> (<em>str</em><em>, </em><em>optional</em>) – the name of the data catalog, by default “nexa”, which stands for the Nasa Exoplanet Archive</p></li>
+<li><p><strong>verbose</strong> (<em>int</em><em>, </em><em>optional</em>) – amount of information displayed during runtime, 0 (default), 1 (some info), 2 (technical details), -1 (none)</p></li>
+<li><p><strong>parallel</strong> (<em>bool</em><em>, </em><em>optional</em>) – if True will perform the observability and SNR calculation for all planets in parallel, by default True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>df</strong> – the results with one entry per transit
+entries are
+- name: name of the star and planet letter
+- snr: estimated snr for this transit
+- exptime: exposure time in seconds
+- time: mid transit time in MJD
+- time_begin: ingress time in MJD
+- time_end: egress time in MJD</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
-<div class="section" id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-crires_planning_tool">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-crires_planning_tool" title="Permalink to this headline">¶</a></h2>
 </div>
 </div>
 
@@ -76,11 +508,11 @@
 <li class="toctree-l1"><a class="reference internal" href="usage/command_line.html">Command Line Interface</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">crires_planning_tool package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#crires-planning-tool-etc-form-module">crires_planning_tool.etc_form module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#crires-planning-tool-interactive-graph-module">crires_planning_tool.interactive_graph module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#crires-planning-tool-nasa-exoplanets-archive-module">crires_planning_tool.nasa_exoplanets_archive module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#crires-planning-tool-transit-planner-module">crires_planning_tool.transit_planner module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-crires_planning_tool.etc_form">crires_planning_tool.etc_form module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-crires_planning_tool.interactive_graph">crires_planning_tool.interactive_graph module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-crires_planning_tool.nasa_exoplanets_archive">crires_planning_tool.nasa_exoplanets_archive module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-crires_planning_tool.transit_planner">crires_planning_tool.transit_planner module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-crires_planning_tool">Module contents</a></li>
 </ul>
 </li>
 </ul>
