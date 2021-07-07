@@ -35,10 +35,12 @@ jobs:
     #  run: |
     #    pytest
     - name: build sphinx documentation
+      if: github.event_name != 'pull_request'
       uses: ammaraskar/sphinx-action@master
       with:
         docs-folder: "docs/"
     - name: Commit documentation changes
+      if: github.event_name != 'pull_request'
       run: |
         git clone https://github.com/awehrhahn/crires-planning-tool.git --branch gh-pages --single-branch gh-pages
         cp -r docs/_build/html/* gh-pages/
@@ -50,6 +52,7 @@ jobs:
         git commit -m "Update documentation" -a || true
         # The above command will fail if no changes were present, so we ignore that.
     - name: Push changes
+      if: github.event_name != 'pull_request'
       uses: ad-m/github-push-action@master
       with:
         branch: gh-pages
