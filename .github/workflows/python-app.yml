@@ -38,6 +38,7 @@ jobs:
       if: github.event_name != 'pull_request'
       uses: ammaraskar/sphinx-action@master
       with:
+        pre-build-command: "pip install -r requirements.txt"
         docs-folder: "docs/"
     - name: Commit documentation changes
       if: github.event_name != 'pull_request'
