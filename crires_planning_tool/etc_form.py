@@ -80,48 +80,48 @@ class EtcForm:
 
     def update_form(self, **kwargs):
         """
-            changes input values in 'etc-form.json'
+        changes input values in 'etc-form.json'
 
-            Parameters:
-            -----------
-            Keyword arguments recognized by update_etc_form:
+        Parameters
+        -----------
+        Keyword arguments recognized by update_etc_form:
 
-            airmass : float
+        airmass : float
 
-            moon_target_sep : list
-                Two values, first value is moon_target_separation in degrees, second value is moon_alt in degrees.
+        moon_target_sep : list
+            Two values, first value is moon_target_separation in degrees, second value is moon_alt in degrees.
 
-            moon_phase : float
-                moon_sun_separation in degrees.
+        moon_phase : float
+            moon_sun_separation in degrees.
 
-            snr : int or float
-                Minimum signal to noise ratio S/N.
+        snr : int or float
+            Minimum signal to noise ratio S/N.
 
-            dit : int or float
-                DIT exposure time for single exposure.
+        dit : int or float
+            DIT exposure time for single exposure.
 
-            ndit : int
-                NDIT number of single exposures for one single observation.
+        ndit : int
+            NDIT number of single exposures for one single observation.
 
-                NDIT*DIT = Texp total exposure time for one single observation.
+            NDIT*DIT = Texp total exposure time for one single observation.
 
-            inputtype : string
-                snr or ndit depending on ETC calculator should calculate the NDIT for a certain minimum S/N
-                or S/N for a certain NDIT.
+        inputtype : string
+            snr or ndit depending on ETC calculator should calculate the NDIT for a certain minimum S/N
+            or S/N for a certain NDIT.
 
-            temperature : float
-                Effective temperature of the target object.
+        temperature : float
+            Effective temperature of the target object.
 
-            brightness : float
-                Object brightness, standard is J-band magnitude, system: AB.
-            
-            gsmag : float 
-                Brightness of the guide star. 
-            
-            sptype : string
-                Spectral type of guide star.
+        brightness : float
+            Object brightness, standard is J-band magnitude, system: AB.
+        
+        gsmag : float 
+            Brightness of the guide star. 
+        
+        sptype : string
+            Spectral type of guide star.
 
-            others can be added:...
+        others can be added:...
 
         """
 

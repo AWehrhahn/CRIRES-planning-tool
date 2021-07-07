@@ -43,15 +43,15 @@ def get_default_constraints():
     -------
     constraints : list
         list of constraints
-    """    
+    """
     # Altitude constraints definition
     altcons = ap.AltitudeConstraint(min=+30 * u.deg, max=None)
 
     # Airmass constraints definition
     airmasscons = ap.AirmassConstraint(min=None, max=1.7)
 
-    # Astronomical Nighttime constraints definition: 
-    # begin and end of each night at paranal as 
+    # Astronomical Nighttime constraints definition:
+    # begin and end of each night at paranal as
     # AtNightConstraint.twilight_astronomical
     night_cons_per_night = ap.AtNightConstraint.twilight_astronomical()
 
@@ -260,12 +260,12 @@ def transit_calculation(
     df : pd.DataFrame
         the results with one entry per transit
         entries are
-          - name: name of the star and planet letter
-          - snr: estimated snr for this transit
-          - exptime: exposure time in seconds
-          - time: mid transit time in MJD
-          - time_begin: ingress time in MJD
-          - time_end: egress time in MJD
+        - name: name of the star and planet letter
+        - snr: estimated snr for this transit
+        - exptime: exposure time in seconds
+        - time: mid transit time in MJD
+        - time_begin: ingress time in MJD
+        - time_end: egress time in MJD
     """
 
     assert mode in [
@@ -366,12 +366,14 @@ def transit_calculation(
         with ProcessPoolExecutor() as executor:
             futures = []
             for data in catalog:
-                args = (data,
-                        date_start,
-                        date_end,
-                        constraints,
-                        observer,
-                        verbose,)
+                args = (
+                    data,
+                    date_start,
+                    date_end,
+                    constraints,
+                    observer,
+                    verbose,
+                )
                 futures += [
                     executor.submit(
                         single_planet,
@@ -424,7 +426,10 @@ def main():
         The dataframe containing all observable transits
     """
 
-    parser = argparse.ArgumentParser(description="CRIRES+ planning tool")
+    parser = argparse.ArgumentParser(
+        "crires-planning-tool",
+        description="CRIRES+ planning tool to determine the observable transits of one or more planets",
+    )
     # Add all arguments
     parser.add_argument(
         "begin", type=dateparser.parse, help="first date to check for transits"
@@ -436,13 +441,19 @@ def main():
         "planets",
         type=str,
         nargs="*",
-        help="Names of the planets to calculate in the format 'star letter'",
+        help=(
+            "Names of the planets to calculate in the format 'star letter'. "
+            "If just the name of the star is given it will get all the planets of "
+            "that system. If mode is set to 'criteria' this defines the criteria "
+            "instead of the planets, look at the NASA Exoplanet Archive documentation "
+            "of the TAP interface for available criteria."
+        ),
     )
     parser.add_argument(
         "-O",
         "--observer",
         type=str,
-        help="Location of the observer, by default 'paranal'",
+        help="Location of the observer, by default 'paranal'. This can be any name supported by astropy.",
         default="paranal",
     )
     parser.add_argument(
@@ -456,7 +467,11 @@ def main():
         "-m",
         "--mode",
         type=str,
-        help="Which mode to use 'planets' or 'criteria'",
+        help=(
+            "Which mode to use 'planets' or 'criteria'. In mode 'planets' we "
+            "define the specific planets to investigate, in mode 'criteria' we "
+            "specify conditions that the stars and planets need to fullfill."
+        ),
         default="planets",
     )
     parser.add_argument("-o", "--output", type=str, help="Save the data to this file")
@@ -464,7 +479,10 @@ def main():
         "-f",
         "--file",
         action="store_true",
-        help="Load planet names from a file instead, one planet name per line. Lines starting with # are considered comments",
+        help=(
+            "Load planet names from a file instead, one planet name per line. "
+            "Lines starting with # are considered comments"
+        ),
     )
     parser.add_argument(
         "-p",
@@ -473,9 +491,16 @@ def main():
         help="If set will create an interactive plot",
     )
     parser.add_argument("--plot-file-1", help="filename for the first plot")
-    parser.add_argument("--plot-file-2", help="filename for the first plot")
-    parser.add_argument("-v", "--verbose", action="count", default=0, help="verbosity level up to -vv")
-    parser.add_argument("-s", "--silent", action="store_true", help="removes all console output, except for errors")
+    parser.add_argument("--plot-file-2", help="filename for the second plot")
+    parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="verbosity level up to -vv"
+    )
+    parser.add_argument(
+        "-s",
+        "--silent",
+        action="store_true",
+        help="removes all console output, except for errors",
+    )
     args = parser.parse_args()
 
     # Process the arguments
@@ -492,7 +517,6 @@ def main():
     plot_file_2 = args.plot_file_2
     if plot_file_1 is not None or plot_file_2 is not None:
         plot = True
-
 
     if args.file:
         filename = planets[0]
@@ -532,6 +556,7 @@ def main():
     if plot:
         create_interactive_graph(df, plot_file_1, plot_file_2)
     return df
+
 
 if __name__ == "__main__":
     main()

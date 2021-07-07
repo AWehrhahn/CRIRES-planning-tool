@@ -8,8 +8,6 @@ Version 0.1.0 2021
 
 The CRIRES-planning-tool is intended to be used to plan transit observations of exoplanets for CRIRES+, the new cross-dispersed high-resolution infrared spectrograph for the ESO VLT [CRIRES+](https://www.eso.org/sci/facilities/develop/instruments/crires_up.html). Observaton of exoplanets can be planned in two ways. Single candidate by name in a given timespan or by using constraints for observable candidates by CRIRES+, which can be loaded from the file: Nasa_Archive_Selection.txt (see section: **Constraints for Candidates**). The known exoplanets fulfilling these constraints are downloaded from NASA Exoplanet Archive and each candidate is checked for its observability from Cerro Paranal, Chile for during a given time frame. Each observable candidate is checked for a minimum signal-to-noise ratio (S/N)≥100 during 20 exposures. This constrain will likely be updated in the future to distinguish between observations of super-Earth's or giant planets, and sensitive to the host star spectral type. Each exposure is related to its total exposure time, calculated from the detector integration time multiplied with the number of detector integrations: (TEXP = DIT x NDIT) and NDIT is optimized to be within 16≤NDIT≤32 for each exposure (see section: **Exposure Time Calculator**). Candidates with observability of the complete transit are added to the observation list and further information can be found in the output excel files (see section: **Result files**). The tool uses two ways to calculate the number of exposures possible during a single transit. The details are described in my master thesis: *Planning observations of terrestrial Exoplanets around M type Stars with CRIRES+*, section *3.3 Signal-to-noise ratio and the Exposure Time Calculator*. The tool comes with plotting tools and a commandline window to access its functionalities. This document shall give an overview about the functionalities, accessibility, structure,  installation, and further development possibilities of the CRIRES-planning-tool. Code documentation can be found in **Code documentation** and a dependency tree is presented in **Dependencies**. The methods used for astronomical calculations are used from the astropy and astroplan library, about which documentation can be found here: [astroplan](https://astroplan.readthedocs.io/en/latest/), [astropy](https://docs.astropy.org/en/stable/).  
 
-
-
 #### Installation:
 
 1. Navigate to your chosen directory to install the CRIRES-planning-tool.
@@ -56,7 +54,7 @@ Note that you need to use the `--output=<filename>` option to generate output fi
 
 By default the possible observations are constrained by four measures as described in `transit_planner.get_default_constraints()`. These can be replaced by passing the constraints parameter to `transit_planner.transit_calculation()`. The default constraints are: Altitude above 30 deg, airmass less than 1.7, 
 astronomical twilight at the observing location, and at least 45 deg seperation from the moon.
-
+You can create your own constraints using the `astroplan.constraints` package.
 
 #### Exposure Time Calculator
 

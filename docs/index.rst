@@ -10,13 +10,8 @@ Welcome to CRIRES+ Planning Tool's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
-Modules
-=======
-
-.. autosummary::
-   :toctree: modules
-
+   usage/installation
+   usage/command_line
    crires_planning_tool
 
 Indices and tables
