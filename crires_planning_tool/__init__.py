@@ -22,17 +22,18 @@ class TqdmLoggingHandler(logging.Handler):
             self.handleError(record)
 
 tqdm.tqdm.get_lock()
-
+logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-console = TqdmLoggingHandler()
-console.setLevel(logging.DEBUG)
+__console__ = TqdmLoggingHandler()
+__console__.setLevel(logging.WARNING)
 if colorlog is not None:
-    console.setFormatter(
-        colorlog.ColoredFormatter("%(log_color)s%(levelname)s - %(message)s")
+    __console__.setFormatter(
+        colorlog.ColoredFormatter("%(log_color)s%(levelname)s - %(name)s - %(message)s")
     )
-logger.addHandler(console)
+logger.addHandler(__console__)
+
 
 del logging
 del colorlog

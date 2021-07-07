@@ -10,8 +10,7 @@ import argparse
 import logging
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from multiprocessing import Value
-from os.path import dirname, join
+
 
 import astroplan as ap
 import dateparser
@@ -20,16 +19,35 @@ import pandas as pd
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+from astropy.utils.exceptions import AstropyWarning
 from tqdm import tqdm
 
 try:
     from .interactive_graph import create_interactive_graph
     from .nasa_exoplanets_archive import NasaExoplanetsArchive
+    from . import __console__
 except ImportError:
     from interactive_graph import create_interactive_graph
     from nasa_exoplanets_archive import NasaExoplanetsArchive
+    from __init__ import __console__
 
 logger = logging.getLogger(__name__)
+
+def set_verbose_level(verbose):
+    if verbose < 0:
+        level = logging.ERROR
+    elif verbose == 0:
+        level = logging.WARNING
+    elif verbose == 1:
+        level = logging.INFO
+    else:
+        level = logging.DEBUG
+    if level != __console__.level:
+        __console__.setLevel(level)
+        if level > logging.DEBUG:
+            warnings.simplefilter("ignore", category=AstropyWarning)
+        else:
+            warnings.simplefilter("once", category=AstropyWarning)
 
 
 def get_default_constraints():
@@ -161,6 +179,8 @@ def single_planet(data, date_start, date_end, constraints, observer, verbose=0):
     result : dict
         contains everything about this planet, one entry per observable transit
     """
+    set_verbose_level(verbose)
+
     primary_eclipse_time = Time(data["pl_tranmid"], format="jd")
     orbital_period = data["pl_orbper"] * u.day
     eclipse_duration = data["pl_trandur"] * u.hour
@@ -186,8 +206,7 @@ def single_planet(data, date_start, date_end, constraints, observer, verbose=0):
     if eclipses[-1][0] > date_end:
         eclipses = eclipses[:-1]
     if len(eclipses) == 0:
-        if verbose >= 1:
-            logger.warning(f"No observable transits found for planet {name}")
+        logger.warning(f"No observable transits found for planet {name}")
         return None
 
     # Check if they are observable
@@ -197,8 +216,7 @@ def single_planet(data, date_start, date_end, constraints, observer, verbose=0):
     observable_eclipses = eclipses[is_observable]
     n_eclipses = len(observable_eclipses)
     if n_eclipses == 0:
-        if verbose >= 0:
-            logger.warning(f"No observable transits found for planet {name}")
+        logger.warning(f"No observable transits found for planet {name}")
         return None
 
     # Calculate the SNR for those that are left
@@ -229,9 +247,9 @@ def transit_calculation(
     constraints=None,
     observer="paranal",
     catalog="nexa",
-    verbose=0,
     mode="planets",
     parallel=True,
+    verbose=0,
 ):
     """
     Determine the SNR of all observable transits for one or more planets between two times
@@ -267,6 +285,7 @@ def transit_calculation(
         - time_begin: ingress time in MJD
         - time_end: egress time in MJD
     """
+    set_verbose_level(verbose)
 
     assert mode in [
         "planets",
@@ -287,10 +306,9 @@ def transit_calculation(
 
     if planets_or_criteria is None:
         if mode == "criteria":
-            if verbose >= 0:
-                logger.warning(
-                    "No criteria were set for the observation, using default values instead. Set 'planets_or_criteria' to an empty list if you want to use all planets instead []."
-                )
+            logger.warning(
+                "No criteria were set for the observation, using default values instead. Set 'planets_or_criteria' to an empty list if you want to use all planets instead []."
+            )
             planets_or_criteria = [
                 "pl_bmassj < 1",
                 "dec < 10",
@@ -307,26 +325,11 @@ def transit_calculation(
     date_end = Time(date_end)
     assert date_start < date_end, "Starting date must be earlier than the end date"
 
-    if verbose >= 0:
-        if mode == "planets":
-            logger.info(
-                f"Calculating observable transits for planets: {planets_or_criteria}"
-            )
-        elif mode == "criteria":
-            logger.info(
-                f"Calculating observable transits for planets that fullfill: {planets_or_criteria}"
-            )
-        else:
-            raise ValueError
-        logger.info(f"between {date_start} and {date_end}")
-    if observer != "paranal" or verbose >= 1:
-        if observer.name is not None:
-            observer_name = observer.name
-        else:
-            observer_name = observer.location
-        logger.info(f"at observing location {observer_name}")
-    if catalog != "nexa" or verbose >= 1:
-        logger.info(f"using data catalog {catalog}")
+    observer_name = observer.name if observer.name is not None else observer.location
+    logger.info(f"Calculating observable transits for planets: {planets_or_criteria}")
+    logger.info(f"between {date_start} and {date_end}")
+    logger.info(f"at observing location {observer_name}")
+    logger.info(f"using data catalog {catalog}")
 
     if catalog == "nexa":
         # TODO: this is slow, add a cache?
@@ -348,10 +351,9 @@ def transit_calculation(
     mask |= np.ma.getmask(catalog["st_teff"])
     catalog = catalog[~mask]
 
-    if verbose >= 0:
-        logger.info(
-            f"Successfully loaded planet data from catalog and found {len(catalog)} potential planets"
-        )
+    logger.info(
+        f"Successfully loaded planet data from catalog and found {len(catalog)} potential planets"
+    )
 
     results = {
         "name": [],
@@ -410,8 +412,7 @@ def transit_calculation(
     for column in results.keys():
         results[column] = np.concatenate(results[column])
     df = pd.DataFrame(data=results)
-    if verbose >= 1:
-        logger.debug(df)
+    logger.debug(df)
     return df
 
 
