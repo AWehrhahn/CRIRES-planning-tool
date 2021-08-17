@@ -33,6 +33,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 def set_verbose_level(verbose):
     if verbose < 0:
         level = logging.ERROR
