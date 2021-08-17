@@ -2,8 +2,12 @@ import datetime
 from astropy.time import Time
 from astropy import units as u
 
-from .transit_planner import transit_calculation
-from .interactive_graph import create_interactive_graph
+try:
+    from .transit_planner import transit_calculation
+    from .interactive_graph import create_interactive_graph
+except ImportError:
+    from crires_planning_tool.transit_planner import transit_calculation
+    from crires_planning_tool.interactive_graph import create_interactive_graph
 
 class MenuController:
     def __init__(self, hello="Hello"):
