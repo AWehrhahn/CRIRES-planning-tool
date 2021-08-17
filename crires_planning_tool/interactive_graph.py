@@ -7,7 +7,7 @@ Created on Mon Apr 26 12:20:40 2021
 import pandas as pd
 import plotly.express as px
 
-def create_interactive_graph(df, filename1=None, filename2=None):
+def create_interactive_graph(df, filename1=None, filename2=None, auto_open=True):
     # --- Plotting the length of each planet's transit (from start to end time) across the given period
     fig = px.timeline(df, x_start="time_begin", x_end="time_end", y="name", color="stellar_effective_temperature", title='Length of each planet transit')
     fig.update_yaxes(autorange="reversed") # otherwise tasks are listed from the bottom up
