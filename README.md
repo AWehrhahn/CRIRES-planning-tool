@@ -43,9 +43,9 @@ The CRIRES-planning-tool is intended to be used to plan transit observations of 
 To update the tool in case of changes you can use `git pull` and run the tool in your virtual environment, by activating it and installing the requirements with pip. Just as if it was freshly installed.
 
 #### Commandline Menu
-The command line interface of the planning tool can be accessed via `python -m crires-planning-tool`.
+The command line interface of the planning tool can be accessed via `python -m crires_planning_tool`.
 It takes at least three parameters, first and second are the starting and end date. This is followed by a list of planet or star names to run the tool for. Use the `-h` option to get detailed descriptions of all options. An example usecase is the following:
-`python -m crires-planning-tool 01-01-2010 01-01-2020 "TRAPPIST-1"`
+`python -m crires_planning_tool 01-01-2010 01-01-2020 "TRAPPIST-1"`
 Note that you need to use the `--output=<filename>` option to generate output files, and you can use the `--plot` option to create visualization plots of the results.
 
 #### Constraints for Candidates
